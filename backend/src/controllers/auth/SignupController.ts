@@ -1,29 +1,27 @@
 import { Request, Response } from 'express';
-import { AuthService, SignupData } from '../../services/auth';
+import { AuthService } from '../../services/auth';
 import { logger } from '../../utils/logger';
 
 export async function signupHandler(req: Request, res: Response): Promise<void> {
   try {
-    const { telegramId, telegramUsername, walletAddress } = req.body;
+    const { telegramId, telegramUsername, email, walletAddress, otp } = req.body;
 
-    if (!telegramId || !walletAddress) {
+    if (!telegramId || !email || !walletAddress || !otp) {
       res.status(400).json({
         success: false,
-        error: 'Missing required fields: telegramId and walletAddress are required.',
+        error: 'Missing required fields: telegramId, email, walletAddress, and otp are required.',
       });
       return;
     }
 
-    const data: SignupData = {
-      telegramId: Number(telegramId),
-      telegramUsername: telegramUsername || undefined,
-      walletAddress: String(walletAddress),
-    };
-
-    const result = await AuthService.signup(data);
+    const result = await AuthService.completeSignup(
+      Number(telegramId),
+      String(otp),
+      String(walletAddress)
+    );
 
     if (!result.success) {
-      res.status(409).json({
+      res.status(400).json({
         success: false,
         error: result.error,
       });
@@ -36,6 +34,7 @@ export async function signupHandler(req: Request, res: Response): Promise<void> 
       user: {
         telegramId: result.user!.telegramId,
         telegramUsername: result.user!.telegramUsername,
+        email: result.user!.email,
         walletAddress: result.user!.walletAddress,
         plan: result.user!.plan,
         createdAt: result.user!.createdAt,

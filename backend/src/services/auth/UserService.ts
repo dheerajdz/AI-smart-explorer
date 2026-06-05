@@ -1,4 +1,4 @@
-import { User, IUser } from '../../models/User';
+import { IUser, UserModel } from '../../models/User';
 import { logger } from '../../utils/logger';
 
 export interface DashboardPayload {
@@ -21,6 +21,7 @@ export interface DashboardPayload {
   profile: {
     telegramId: number;
     telegramUsername?: string;
+    email: string;
     walletAddress: string;
     plan: string;
     createdAt: Date;
@@ -52,6 +53,7 @@ export class UserService {
       profile: {
         telegramId: user.telegramId,
         telegramUsername: user.telegramUsername || undefined,
+        email: user.email,
         walletAddress: user.walletAddress,
         plan: user.plan,
         createdAt: user.createdAt,
@@ -63,7 +65,7 @@ export class UserService {
    * Get user profile by Telegram ID
    */
   static async getProfile(telegramId: number): Promise<IUser | null> {
-    return User.findOne({ telegramId });
+    return UserModel.findByTelegramId(telegramId);
   }
 
   /**
@@ -71,15 +73,12 @@ export class UserService {
    */
   static async updatePlan(telegramId: number, plan: 'free' | 'premium'): Promise<IUser | null> {
     try {
-      const user = await User.findOneAndUpdate(
-        { telegramId },
-        { plan },
-        { new: true }
-      );
-      if (user) {
+      const updated = await UserModel.updateOne({ telegramId }, { plan });
+      if (updated) {
         logger.info('User plan updated', { telegramId, plan });
+        return UserModel.findByTelegramId(telegramId);
       }
-      return user;
+      return null;
     } catch (err) {
       logger.error('Update plan error', err);
       return null;

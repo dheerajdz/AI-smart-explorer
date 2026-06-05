@@ -5,7 +5,12 @@ import {
   startCommand,
   handleSignupAction,
   handleSigninAction,
+  handleResendSignupOTP,
+  handleResendSigninOTP,
+  handleCancel,
   handleTextMessage,
+  logoutCommand,
+  handleLogoutAction,
   trackCommand,
   untrackCommand,
   listCommand,
@@ -19,6 +24,7 @@ export function createBot(): Telegraf {
 
   /* -------------------- Commands -------------------- */
   bot.command('start', startCommand);
+  bot.command('logout', logoutCommand);
   bot.command('track', trackCommand);
   bot.command('untrack', untrackCommand);
   bot.command('list', listCommand);
@@ -29,6 +35,10 @@ export function createBot(): Telegraf {
   /* -------------------- Callbacks -------------------- */
   bot.action('action_signup', handleSignupAction);
   bot.action('action_signin', handleSigninAction);
+  bot.action('action_resend_signup', handleResendSignupOTP);
+  bot.action('action_resend_signin', handleResendSigninOTP);
+  bot.action('action_cancel', handleCancel);
+  bot.action('action_logout', handleLogoutAction);
 
   /* -------------------- Dashboard callbacks (placeholders) -------------------- */
   bot.action('dashboard_wallet', async (ctx: Context) => {

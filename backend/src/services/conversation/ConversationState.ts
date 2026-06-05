@@ -3,17 +3,20 @@ import { logger } from '../../utils/logger';
 
 export type ConversationStep =
   | 'idle'
+  | 'awaiting_signup_email'
+  | 'awaiting_signup_otp'
   | 'awaiting_signup_wallet'
-  | 'awaiting_signin_wallet';
+  | 'awaiting_signin_otp';
 
 export interface ConversationState {
   step: ConversationStep;
   telegramId: number;
   telegramUsername?: string;
   action?: 'signup' | 'signin';
+  email?: string;
 }
 
-const CONVERSATION_TTL_SECONDS = 300; // 5 minutes
+const CONVERSATION_TTL_SECONDS = 600; // 10 minutes
 
 function getKey(telegramId: number): string {
   return `conv:${telegramId}`;

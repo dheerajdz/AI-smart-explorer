@@ -1,25 +1,20 @@
 import { Request, Response } from 'express';
-import { AuthService, UserService, SigninData } from '../../services/auth';
+import { AuthService, UserService } from '../../services/auth';
 import { logger } from '../../utils/logger';
 
 export async function signinHandler(req: Request, res: Response): Promise<void> {
   try {
-    const { telegramId, walletAddress } = req.body;
+    const { telegramId, otp } = req.body;
 
-    if (!telegramId || !walletAddress) {
+    if (!telegramId || !otp) {
       res.status(400).json({
         success: false,
-        error: 'Missing required fields: telegramId and walletAddress are required.',
+        error: 'Missing required fields: telegramId and otp are required.',
       });
       return;
     }
 
-    const data: SigninData = {
-      telegramId: Number(telegramId),
-      walletAddress: String(walletAddress),
-    };
-
-    const result = await AuthService.signin(data);
+    const result = await AuthService.completeSignin(Number(telegramId), String(otp));
 
     if (!result.success) {
       res.status(401).json({
@@ -37,6 +32,7 @@ export async function signinHandler(req: Request, res: Response): Promise<void> 
       user: {
         telegramId: result.user!.telegramId,
         telegramUsername: result.user!.telegramUsername,
+        email: result.user!.email,
         walletAddress: result.user!.walletAddress,
         plan: result.user!.plan,
         createdAt: result.user!.createdAt,

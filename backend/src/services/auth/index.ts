@@ -1,2 +1,2 @@
-export { AuthService, SignupData, SigninData, AuthResult } from './AuthService';
-export { UserService, DashboardPayload } from './UserService';
+export { AuthService, type SignupData, type SigninData, type AuthResult } from './AuthService';
+export { UserService, type DashboardPayload } from './UserService';

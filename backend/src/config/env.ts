@@ -8,6 +8,13 @@ const envSchema = z.object({
   KIMI_API_KEY: z.string().min(1, 'KIMI_API_KEY is required'),
   BLOCKSCOUT_API: z.string().url().optional(),
   XDCSCAN_API: z.string().url().optional(),
+  // Email / SMTP Configuration
+  SMTP_HOST: z.string().min(1, 'SMTP_HOST is required'),
+  SMTP_PORT: z.string().default('587').transform((v) => parseInt(v, 10)),
+  SMTP_USER: z.string().min(1, 'SMTP_USER is required'),
+  SMTP_PASS: z.string().min(1, 'SMTP_PASS is required'),
+  SMTP_FROM: z.string().email().default('noreply@smartaiexplorer.com'),
+  SMTP_SECURE: z.string().default('false').transform((v) => v === 'true'),
 });
 
 const parsed = envSchema.safeParse(process.env);

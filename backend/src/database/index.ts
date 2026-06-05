@@ -1,2 +1,2 @@
-export { connectMongo, disconnectMongo } from './mongoose';
+export { connectMongo, disconnectMongo, getDb, getClient } from './mongodb';
 export { redis, disconnectRedis } from './redis';
