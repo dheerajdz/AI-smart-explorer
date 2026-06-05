@@ -8,6 +8,9 @@ const envSchema = z.object({
   KIMI_API_KEY: z.string().min(1, 'KIMI_API_KEY is required'),
   BLOCKSCOUT_API: z.string().url().optional(),
   XDCSCAN_API: z.string().url().optional(),
+  TWILIO_ACCOUNT_SID: z.string().min(1, 'TWILIO_ACCOUNT_SID is required'),
+  TWILIO_AUTH_TOKEN: z.string().min(1, 'TWILIO_AUTH_TOKEN is required'),
+  TWILIO_WHATSAPP_NUMBER: z.string().min(1, 'TWILIO_WHATSAPP_NUMBER is required'),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -1,3 +1,3 @@
-export * as ai from './ai';
-export * as blockchain from './blockchain';
-export * as notification from './notification';
+export { messageRouter } from './messageRouter';
+export { commandHandler } from './commandHandler';
+export * as walletService from './walletService';
