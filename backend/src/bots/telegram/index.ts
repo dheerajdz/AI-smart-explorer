@@ -1,8 +1,11 @@
-import { Telegraf } from 'telegraf';
+import { Telegraf, Context } from 'telegraf';
 import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 import {
   startCommand,
+  handleSignupAction,
+  handleSigninAction,
+  handleTextMessage,
   trackCommand,
   untrackCommand,
   listCommand,
@@ -14,6 +17,7 @@ import {
 export function createBot(): Telegraf {
   const bot = new Telegraf(env.TELEGRAM_BOT_TOKEN);
 
+  /* -------------------- Commands -------------------- */
   bot.command('start', startCommand);
   bot.command('track', trackCommand);
   bot.command('untrack', untrackCommand);
@@ -22,10 +26,34 @@ export function createBot(): Telegraf {
   bot.command('price', priceCommand);
   bot.command('status', statusCommand);
 
-  bot.on('text', async (ctx) => {
-    logger.info('Received message', { text: ctx.message.text, from: ctx.from?.id });
-    await ctx.reply('🤖 I received your message. AI processing is coming soon!');
+  /* -------------------- Callbacks -------------------- */
+  bot.action('action_signup', handleSignupAction);
+  bot.action('action_signin', handleSigninAction);
+
+  /* -------------------- Dashboard callbacks (placeholders) -------------------- */
+  bot.action('dashboard_wallet', async (ctx: Context) => {
+    await ctx.reply('💼 Wallet view is coming soon!');
+    await ctx.answerCbQuery();
   });
+  bot.action('dashboard_transactions', async (ctx: Context) => {
+    await ctx.reply('📊 Transactions view is coming soon!');
+    await ctx.answerCbQuery();
+  });
+  bot.action('dashboard_analyze', async (ctx: Context) => {
+    await ctx.reply('🔍 Analyze Wallet is coming soon!');
+    await ctx.answerCbQuery();
+  });
+  bot.action('dashboard_track', async (ctx: Context) => {
+    await ctx.reply('🔔 Track Wallet is coming soon!');
+    await ctx.answerCbQuery();
+  });
+  bot.action('dashboard_profile', async (ctx: Context) => {
+    await ctx.reply('👤 Profile view is coming soon!');
+    await ctx.answerCbQuery();
+  });
+
+  /* -------------------- Text messages -------------------- */
+  bot.on('text', handleTextMessage);
 
   return bot;
 }

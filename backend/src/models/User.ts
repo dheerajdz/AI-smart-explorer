@@ -2,9 +2,9 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IUser extends Document {
   telegramId: number;
-  username?: string;
-  firstName?: string;
-  lastName?: string;
+  telegramUsername?: string;
+  walletAddress: string;
+  plan: 'free' | 'premium';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -12,9 +12,9 @@ export interface IUser extends Document {
 const UserSchema = new Schema<IUser>(
   {
     telegramId: { type: Number, required: true, unique: true, index: true },
-    username: { type: String },
-    firstName: { type: String },
-    lastName: { type: String },
+    telegramUsername: { type: String },
+    walletAddress: { type: String, required: true, unique: true, index: true },
+    plan: { type: String, enum: ['free', 'premium'], default: 'free' },
   },
   { timestamps: true }
 );
