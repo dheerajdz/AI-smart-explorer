@@ -1,40 +1,49 @@
-// Temporary in-memory storage for wallets
-// Replace with MongoDB persistence later without changing service consumers
+import { detectNetwork, Network } from '../../utils/network';
 
-const walletsByUser = new Map<string, Set<string>>();
+export interface StoredWallet {
+  address: string;
+  network: Network;
+}
 
-export function getUserWallets(userId: string): Set<string> {
+const walletsByUser = new Map<string, Map<string, StoredWallet>>();
+
+function getUserWalletMap(userId: string): Map<string, StoredWallet> {
   if (!walletsByUser.has(userId)) {
-    walletsByUser.set(userId, new Set());
+    walletsByUser.set(userId, new Map());
   }
   return walletsByUser.get(userId)!;
 }
 
-export function addWallet(userId: string, wallet: string): boolean {
-  const normalized = wallet.trim().toLowerCase();
+export function addWallet(userId: string, address: string): boolean {
+  const normalized = address.trim().toLowerCase();
   if (!normalized) return false;
 
-  const wallets = getUserWallets(userId);
+  const network = detectNetwork(normalized);
+  const wallets = getUserWalletMap(userId);
   if (wallets.has(normalized)) return false;
 
-  wallets.add(normalized);
+  wallets.set(normalized, { address: normalized, network });
   return true;
 }
 
-export function removeWallet(userId: string, wallet: string): boolean {
-  const normalized = wallet.trim().toLowerCase();
+export function removeWallet(userId: string, address: string): boolean {
+  const normalized = address.trim().toLowerCase();
   if (!normalized) return false;
 
-  const wallets = getUserWallets(userId);
+  const wallets = getUserWalletMap(userId);
   if (!wallets.has(normalized)) return false;
 
   wallets.delete(normalized);
   return true;
 }
 
-export function listWallets(userId: string): string[] {
-  const wallets = getUserWallets(userId);
-  return Array.from(wallets);
+export function listWallets(userId: string): StoredWallet[] {
+  const wallets = getUserWalletMap(userId);
+  return Array.from(wallets.values());
+}
+
+export function getAllUsers(): IterableIterator<[string, Map<string, StoredWallet>]> {
+  return walletsByUser.entries();
 }
 
 export function clearUserWallets(userId: string): void {

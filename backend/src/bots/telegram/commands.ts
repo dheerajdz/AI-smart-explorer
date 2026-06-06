@@ -6,6 +6,14 @@ import {
   ConversationStateService,
   ConversationState,
 } from '../../services/conversation/ConversationState';
+import * as walletService from '../../services/walletService';
+import { getBalance, getTxList } from '../../services/blockchain';
+import {
+  isValidXdcAddress,
+  getExplorerAddressUrl,
+  getExplorerTxUrl,
+} from '../../utils/network';
+import type { Network } from '../../utils/network';
 
 /* ------------------------------------------------------------------ */
 /*  /start  — onboarding menu                                          */
@@ -535,26 +543,165 @@ async function processSigninOTP(ctx: Context, telegramId: number, otp: string): 
 }
 
 /* ------------------------------------------------------------------ */
-/*  Legacy placeholder commands                                        */
+/*  Blockchain commands                                                */
 /* ------------------------------------------------------------------ */
+
+function getWalletFromArgs(ctx: Context): string {
+  const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
+  const parts = text.split(/\s+/);
+  return parts.slice(1).join(' ').trim();
+}
+
 export async function trackCommand(ctx: Context): Promise<void> {
-  logger.info('Command: /track', { from: ctx.from?.id });
-  await ctx.reply('🔔 Wallet tracking is coming soon!');
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const wallet = getWalletFromArgs(ctx);
+  if (!wallet) {
+    await ctx.reply('❌ Please provide a wallet address.\n\nUsage: /track <wallet>');
+    return;
+  }
+
+  if (!isValidXdcAddress(wallet)) {
+    await ctx.reply('❌ Invalid XDC address.\n\nAddresses must start with xdc (mainnet) or txdc (testnet).');
+    return;
+  }
+
+  const result = walletService.trackWallet(String(telegramId), wallet);
+  const networkLabel = result.network === 'testnet' ? '🔵 Testnet' : '🟢 Mainnet';
+  const explorerUrl = getExplorerAddressUrl(result.network, result.wallet);
+
+  if (result.alreadyTracked) {
+    await ctx.reply(
+      `⚠️ Wallet already tracked\n\nWallet: \`${result.wallet}\`\nNetwork: ${networkLabel}\n[View on Explorer](${explorerUrl})`,
+      { parse_mode: 'Markdown' }
+    );
+    return;
+  }
+
+  await ctx.reply(
+    `✅ Wallet tracking enabled\n\nWallet: \`${result.wallet}\`\nNetwork: ${networkLabel}\n[View on Explorer](${explorerUrl})`,
+    { parse_mode: 'Markdown' }
+  );
 }
 
 export async function untrackCommand(ctx: Context): Promise<void> {
-  logger.info('Command: /untrack', { from: ctx.from?.id });
-  await ctx.reply('🔕 Wallet untracking is coming soon!');
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const wallet = getWalletFromArgs(ctx);
+  if (!wallet) {
+    await ctx.reply('❌ Please provide a wallet address.\n\nUsage: /untrack <wallet>');
+    return;
+  }
+
+  const result = walletService.untrackWallet(String(telegramId), wallet);
+
+  if (!result.success) {
+    if (result.notFound) {
+      await ctx.reply(`⚠️ Wallet not found in tracking list\n\nWallet:\n${result.wallet}`);
+      return;
+    }
+    await ctx.reply('❌ Failed to remove wallet. Please try again.');
+    return;
+  }
+
+  await ctx.reply(`✅ Wallet removed from tracking\n\nWallet:\n${result.wallet}`);
 }
 
 export async function listCommand(ctx: Context): Promise<void> {
-  logger.info('Command: /list', { from: ctx.from?.id });
-  await ctx.reply('📋 Your tracked wallets will appear here soon.');
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const wallets = walletService.listWallets(String(telegramId));
+
+  if (wallets.length === 0) {
+    await ctx.reply('No tracked wallets.\n\nUse /track <wallet> to start tracking.');
+    return;
+  }
+
+  const lines = wallets.map((w, index) => {
+    const netLabel = w.network === 'testnet' ? '🔵 Testnet' : '🟢 Mainnet';
+    return `${index + 1}. \`${w.address}\` ${netLabel}`;
+  });
+
+  await ctx.reply(`Tracked Wallets\n\n${lines.join('\n')}`, { parse_mode: 'Markdown' });
 }
 
 export async function balanceCommand(ctx: Context): Promise<void> {
-  logger.info('Command: /balance', { from: ctx.from?.id });
-  await ctx.reply('💰 Balance lookup is coming soon!');
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const wallet = getWalletFromArgs(ctx);
+  if (!wallet) {
+    await ctx.reply('❌ Please provide a wallet address.\n\nUsage: /balance <wallet>');
+    return;
+  }
+
+  if (!isValidXdcAddress(wallet)) {
+    await ctx.reply('❌ Invalid XDC address.\n\nAddresses must start with xdc (mainnet) or txdc (testnet).');
+    return;
+  }
+
+  try {
+    const result = await getBalance(wallet);
+    const xdcValue = (BigInt(result.balance) / BigInt(10 ** 18)).toString();
+    const networkLabel = result.network === 'testnet' ? '🔵 Testnet' : '🟢 Mainnet';
+    const explorerUrl = getExplorerAddressUrl(result.network, result.address);
+
+    await ctx.reply(
+      `💰 Balance\n\nWallet: \`${result.address}\`\nNetwork: ${networkLabel}\nBalance: **${xdcValue} XDC**\n[View on Explorer](${explorerUrl})`,
+      { parse_mode: 'Markdown' }
+    );
+  } catch (err) {
+    logger.error('Balance fetch failed', { wallet, error: (err as Error).message });
+    await ctx.reply('❌ Failed to fetch balance. Please try again later.');
+  }
+}
+
+export async function txCommand(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const wallet = getWalletFromArgs(ctx);
+  if (!wallet) {
+    await ctx.reply('❌ Please provide a wallet address.\n\nUsage: /tx <wallet>');
+    return;
+  }
+
+  if (!isValidXdcAddress(wallet)) {
+    await ctx.reply('❌ Invalid XDC address.\n\nAddresses must start with xdc (mainnet) or txdc (testnet).');
+    return;
+  }
+
+  try {
+    const result = await getTxList(wallet);
+    const networkLabel = result.network === 'testnet' ? '🔵 Testnet' : '🟢 Mainnet';
+
+    if (result.transactions.length === 0) {
+      await ctx.reply(
+        `📭 No transactions found\n\nWallet: \`${result.address}\`\nNetwork: ${networkLabel}`,
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
+
+    const top5 = result.transactions.slice(0, 5);
+    const lines = top5.map((tx, i) => {
+      const xdcValue = (BigInt(tx.value) / BigInt(10 ** 18)).toString();
+      const explorerUrl = getExplorerTxUrl(result.network, tx.hash);
+      const status = tx.isError === '1' ? '❌ Failed' : '✅ Success';
+      return `${i + 1}. [${status}] ${xdcValue} XDC\n   \`${tx.hash}\`\n   [View on Explorer](${explorerUrl})`;
+    });
+
+    await ctx.reply(
+      `📜 Recent Transactions\n\nWallet: \`${result.address}\`\nNetwork: ${networkLabel}\n\n${lines.join('\n\n')}`,
+      { parse_mode: 'Markdown' }
+    );
+  } catch (err) {
+    logger.error('Tx list fetch failed', { wallet, error: (err as Error).message });
+    await ctx.reply('❌ Failed to fetch transactions. Please try again later.');
+  }
 }
 
 export async function priceCommand(ctx: Context): Promise<void> {

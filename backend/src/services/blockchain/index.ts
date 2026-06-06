@@ -1,2 +1,1 @@
-export { getBlockscoutBalance, getBlockscoutTxList } from './blockscoutService';
-export { getXdcscanBalance, getXdcscanTxList } from './xdcscanService';
+export { getBalance, getTxList, type Transaction, type BalanceResult, type TxListResult } from './xdcscanService';
