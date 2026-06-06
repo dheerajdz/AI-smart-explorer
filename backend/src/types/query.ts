@@ -19,6 +19,7 @@ export enum QueryAction {
   NFT_BALANCE = 'nft_balance',
 
   // ── Transactions ─────────────────────────────────────────
+  TRANSACTIONS = 'transactions',
   TRANSACTION_DETAIL = 'transaction_detail',
   FAILED_TRANSACTIONS = 'failed_transactions',
   LARGE_TRANSFERS = 'large_transfers',
@@ -57,6 +58,9 @@ export interface ParsedQuery {
   /** The routing key — determines which handler executes. */
   action: QueryAction;
 
+  /** Network context extracted from address (mainnet | testnet). */
+  network?: 'mainnet' | 'testnet';
+
   /** Any extra parameters extracted from the user message. */
   [key: string]: any;
 }
@@ -71,6 +75,7 @@ export const QUERY_ACTION_DESCRIPTIONS: Record<QueryAction, string> = {
   [QueryAction.TOKEN_BALANCE]: 'Check ERC-20 token balance',
   [QueryAction.NFT_BALANCE]: 'List NFT holdings for a wallet',
 
+  [QueryAction.TRANSACTIONS]: 'Get transaction history for an address',
   [QueryAction.TRANSACTION_DETAIL]: 'Get details of a specific transaction',
   [QueryAction.FAILED_TRANSACTIONS]: 'Find failed transactions for an address',
   [QueryAction.LARGE_TRANSFERS]: 'Detect large token transfers',
@@ -113,6 +118,10 @@ export const QUERY_ACTION_EXAMPLES: Record<QueryAction, string[]> = {
     'Show NFT collection for 0xabc...',
   ],
 
+  [QueryAction.TRANSACTIONS]: [
+    'Show transactions for xdc123...',
+    'Tx history of 0xabc...',
+  ],
   [QueryAction.TRANSACTION_DETAIL]: [
     'Tx 0xabc...',
     'Show transaction 0x123...',

@@ -4,24 +4,33 @@
 // activity tracking, and large transfer detection.
 //
 // XDCScan API Docs: https://xdcscan.io/apis
-// Base URL: https://api.xdcscan.io/api
+// Base URLs:
+//   Mainnet: https://api.xdcscan.io/api
+//   Testnet: https://api-testnet.xdcscan.io/api
 // ============================================================
 
 import axios, { AxiosError } from 'axios';
 import { logger } from '../../utils/logger';
 import { env } from '../../config/env';
+import { Network, getExplorerBaseUrl } from '../../utils/network';
 
 // ─── Config ─────────────────────────────────────────────────
 
-const XDCSCAN_BASE_URL = env.XDCSCAN_API || 'https://api.xdcscan.io/api';
+function getXdcscanBaseUrl(network: Network = 'mainnet'): string {
+  return network === 'testnet'
+    ? env.XDCSCAN_TESTNET_API
+    : env.XDCSCAN_API;
+}
 
-const xdcscanClient = axios.create({
-  baseURL: XDCSCAN_BASE_URL,
-  timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+function createXdcscanClient(network: Network = 'mainnet') {
+  return axios.create({
+    baseURL: getXdcscanBaseUrl(network),
+    timeout: 15000,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+}
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -29,7 +38,9 @@ export interface WalletBalanceResponse {
   address: string;
   balance: string;          // in wei
   balanceXDC: string;       // formatted
+  network: Network;
   source: 'xdcscan';
+  explorerUrl: string;
 }
 
 export interface Transaction {
@@ -50,7 +61,9 @@ export interface TransactionsResponse {
   address: string;
   transactions: Transaction[];
   totalCount: number;
+  network: Network;
   source: 'xdcscan';
+  explorerUrl: string;
 }
 
 export interface WalletActivity {
@@ -60,6 +73,7 @@ export interface WalletActivity {
   lastSeen: string | null;
   uniqueContractsInteracted: number;
   uniqueWalletsInteracted: number;
+  network: Network;
   source: 'xdcscan';
 }
 
@@ -78,7 +92,40 @@ export interface LargeTransfersResponse {
   threshold: string;        // in XDC
   transfers: LargeTransfer[];
   totalCount: number;
+  network: Network;
   source: 'xdcscan';
+}
+
+export interface TokenBalanceResponse {
+  address: string;
+  tokenAddress: string;
+  tokenName?: string;
+  tokenSymbol?: string;
+  balance: string;
+  decimals?: string;
+  network: Network;
+  source: 'xdcscan';
+}
+
+export interface GasPriceResponse {
+  safeGasPrice: string;
+  proposeGasPrice: string;
+  fastGasPrice: string;
+  network: Network;
+  source: 'xdcscan';
+}
+
+export interface BlockInfoResponse {
+  blockNumber: string;
+  timestamp: string;
+  hash: string;
+  miner: string;
+  gasUsed: string;
+  gasLimit: string;
+  transactions: number;
+  network: Network;
+  source: 'xdcscan';
+  explorerUrl: string;
 }
 
 // ─── Helper ─────────────────────────────────────────────────
@@ -91,6 +138,19 @@ function weiToXDC(wei: string): string {
     const value = BigInt(wei);
     const xdc = Number(value) / 1e18;
     return xdc.toFixed(6);
+  } catch {
+    return '0';
+  }
+}
+
+/**
+ * Convert gas price from wei to gwei.
+ */
+function weiToGwei(wei: string): string {
+  try {
+    const value = BigInt(wei);
+    const gwei = Number(value) / 1e9;
+    return gwei.toFixed(2);
   } catch {
     return '0';
   }
@@ -115,14 +175,13 @@ function handleApiError(error: unknown, context: string): never {
 
 // ─── 1. getWalletBalance ────────────────────────────────────
 
-/**
- * Get XDC balance for a wallet address.
- *
- * @param address XDC wallet address (xdc... or 0x...)
- * @returns Balance in wei and formatted XDC
- */
-export async function getWalletBalance(address: string): Promise<WalletBalanceResponse> {
-  logger.info('[XDCScan] getWalletBalance', { address });
+export async function getWalletBalance(
+  address: string,
+  network: Network = 'mainnet'
+): Promise<WalletBalanceResponse> {
+  logger.info('[XDCScan] getWalletBalance', { address, network });
+
+  const xdcscanClient = createXdcscanClient(network);
 
   try {
     const response = await xdcscanClient.get('', {
@@ -142,20 +201,24 @@ export async function getWalletBalance(address: string): Promise<WalletBalanceRe
         address,
         balance: '0',
         balanceXDC: '0',
+        network,
         source: 'xdcscan',
+        explorerUrl: `${getExplorerBaseUrl(network)}/address/${address}`,
       };
     }
 
     const balance = String(result);
     const balanceXDC = weiToXDC(balance);
 
-    logger.info('[XDCScan] Balance retrieved', { address, balanceXDC });
+    logger.info('[XDCScan] Balance retrieved', { address, balanceXDC, network });
 
     return {
       address,
       balance,
       balanceXDC,
+      network,
       source: 'xdcscan',
+      explorerUrl: `${getExplorerBaseUrl(network)}/address/${address}`,
     };
 
   } catch (error) {
@@ -165,20 +228,15 @@ export async function getWalletBalance(address: string): Promise<WalletBalanceRe
 
 // ─── 2. getTransactions ─────────────────────────────────────
 
-/**
- * Get transaction list for a wallet address.
- *
- * @param address XDC wallet address
- * @param page Page number (default 1)
- * @param offset Items per page (default 10)
- * @returns List of transactions
- */
 export async function getTransactions(
   address: string,
+  network: Network = 'mainnet',
   page: number = 1,
   offset: number = 10,
 ): Promise<TransactionsResponse> {
-  logger.info('[XDCScan] getTransactions', { address, page, offset });
+  logger.info('[XDCScan] getTransactions', { address, network, page, offset });
+
+  const xdcscanClient = createXdcscanClient(network);
 
   try {
     const response = await xdcscanClient.get('', {
@@ -200,7 +258,9 @@ export async function getTransactions(
         address,
         transactions: [],
         totalCount: 0,
+        network,
         source: 'xdcscan',
+        explorerUrl: `${getExplorerBaseUrl(network)}/address/${address}`,
       };
     }
 
@@ -222,13 +282,15 @@ export async function getTransactions(
       isContractCreation: !tx.to || tx.to === '',
     }));
 
-    logger.info('[XDCScan] Transactions retrieved', { address, count: transactions.length });
+    logger.info('[XDCScan] Transactions retrieved', { address, count: transactions.length, network });
 
     return {
       address,
       transactions,
       totalCount: transactions.length,
+      network,
       source: 'xdcscan',
+      explorerUrl: `${getExplorerBaseUrl(network)}/address/${address}`,
     };
 
   } catch (error) {
@@ -238,19 +300,14 @@ export async function getTransactions(
 
 // ─── 3. getWalletActivity ───────────────────────────────────
 
-/**
- * Get comprehensive activity stats for a wallet.
- * Combines multiple API calls to build a profile.
- *
- * @param address XDC wallet address
- * @returns Activity summary
- */
-export async function getWalletActivity(address: string): Promise<WalletActivity> {
-  logger.info('[XDCScan] getWalletActivity', { address });
+export async function getWalletActivity(
+  address: string,
+  network: Network = 'mainnet'
+): Promise<WalletActivity> {
+  logger.info('[XDCScan] getWalletActivity', { address, network });
 
   try {
-    // Get all transactions (first page with high offset for stats)
-    const txResponse = await getTransactions(address, 1, 100);
+    const txResponse = await getTransactions(address, network, 1, 100);
     const transactions = txResponse.transactions;
 
     if (transactions.length === 0) {
@@ -261,11 +318,11 @@ export async function getWalletActivity(address: string): Promise<WalletActivity
         lastSeen: null,
         uniqueContractsInteracted: 0,
         uniqueWalletsInteracted: 0,
+        network,
         source: 'xdcscan',
       };
     }
 
-    // Calculate stats
     const uniqueTo = new Set(transactions.map(tx => tx.to).filter(Boolean));
     const uniqueFrom = new Set(transactions.map(tx => tx.from).filter(Boolean));
     const contractInteractions = transactions.filter(tx =>
@@ -289,6 +346,7 @@ export async function getWalletActivity(address: string): Promise<WalletActivity
       address,
       totalTransactions: transactions.length,
       uniqueContracts: contractInteractions.length,
+      network,
     });
 
     return {
@@ -297,7 +355,8 @@ export async function getWalletActivity(address: string): Promise<WalletActivity
       firstSeen,
       lastSeen,
       uniqueContractsInteracted: contractInteractions.length,
-      uniqueWalletsInteracted: uniqueTo.size + uniqueFrom.size - 1, // exclude self
+      uniqueWalletsInteracted: uniqueTo.size + uniqueFrom.size - 1,
+      network,
       source: 'xdcscan',
     };
 
@@ -308,22 +367,15 @@ export async function getWalletActivity(address: string): Promise<WalletActivity
 
 // ─── 4. getLargeTransfers ───────────────────────────────────
 
-/**
- * Detect large token/XDC transfers for a wallet.
- * Filters transactions above a threshold.
- *
- * @param address XDC wallet address
- * @param thresholdXDC Minimum transfer value in XDC (default 1000)
- * @returns Large transfers above threshold
- */
 export async function getLargeTransfers(
   address: string,
+  network: Network = 'mainnet',
   thresholdXDC: number = 1000,
 ): Promise<LargeTransfersResponse> {
-  logger.info('[XDCScan] getLargeTransfers', { address, thresholdXDC });
+  logger.info('[XDCScan] getLargeTransfers', { address, network, thresholdXDC });
 
   try {
-    const txResponse = await getTransactions(address, 1, 100);
+    const txResponse = await getTransactions(address, network, 1, 100);
     const transactions = txResponse.transactions;
 
     const thresholdWei = BigInt(Math.floor(thresholdXDC * 1e18));
@@ -351,6 +403,7 @@ export async function getLargeTransfers(
       address,
       threshold: thresholdXDC,
       count: largeTransfers.length,
+      network,
     });
 
     return {
@@ -358,10 +411,216 @@ export async function getLargeTransfers(
       threshold: String(thresholdXDC),
       transfers: largeTransfers,
       totalCount: largeTransfers.length,
+      network,
       source: 'xdcscan',
     };
 
   } catch (error) {
     return handleApiError(error, 'getLargeTransfers');
   }
+}
+
+// ─── 5. getTransactionByHash ────────────────────────────────
+
+export async function getTransactionByHash(
+  txHash: string,
+  network: Network = 'mainnet'
+): Promise<{ transaction: Transaction | null; explorerUrl: string }> {
+  logger.info('[XDCScan] getTransactionByHash', { txHash, network });
+
+  try {
+    // XDCScan doesn't have a direct tx hash endpoint in free tier.
+    // We can't fetch without an address context, so return null with explorer link.
+    return {
+      transaction: null,
+      explorerUrl: `${getExplorerBaseUrl(network)}/tx/${txHash}`,
+    };
+  } catch (error) {
+    return handleApiError(error, 'getTransactionByHash');
+  }
+}
+
+// ─── 6. getTokenBalance ─────────────────────────────────────
+
+export async function getTokenBalance(
+  address: string,
+  tokenAddress: string,
+  network: Network = 'mainnet'
+): Promise<TokenBalanceResponse> {
+  logger.info('[XDCScan] getTokenBalance', { address, tokenAddress, network });
+
+  const xdcscanClient = createXdcscanClient(network);
+
+  try {
+    const response = await xdcscanClient.get('', {
+      params: {
+        module: 'account',
+        action: 'tokenbalance',
+        contractaddress: tokenAddress,
+        address,
+        tag: 'latest',
+      },
+    });
+
+    const result = response.data?.result;
+
+    return {
+      address,
+      tokenAddress,
+      balance: result ? String(result) : '0',
+      network,
+      source: 'xdcscan',
+    };
+  } catch (error) {
+    return handleApiError(error, 'getTokenBalance');
+  }
+}
+
+// ─── 7. getGasPrice ─────────────────────────────────────────
+
+export async function getGasPrice(network: Network = 'mainnet'): Promise<GasPriceResponse> {
+  logger.info('[XDCScan] getGasPrice', { network });
+
+  const xdcscanClient = createXdcscanClient(network);
+
+  try {
+    const response = await xdcscanClient.get('', {
+      params: {
+        module: 'gastracker',
+        action: 'gasoracle',
+      },
+    });
+
+    const result = response.data?.result;
+
+    if (result && typeof result === 'object') {
+      return {
+        safeGasPrice: result.SafeGasPrice || '0',
+        proposeGasPrice: result.ProposeGasPrice || '0',
+        fastGasPrice: result.FastGasPrice || '0',
+        network,
+        source: 'xdcscan',
+      };
+    }
+
+    // Fallback to eth_gasPrice via proxy module
+    const proxyResponse = await xdcscanClient.get('', {
+      params: {
+        module: 'proxy',
+        action: 'eth_gasPrice',
+      },
+    });
+
+    const gasPriceHex = proxyResponse.data?.result;
+    const gasPriceGwei = gasPriceHex ? weiToGwei(String(parseInt(gasPriceHex, 16))) : '0';
+
+    return {
+      safeGasPrice: gasPriceGwei,
+      proposeGasPrice: gasPriceGwei,
+      fastGasPrice: gasPriceGwei,
+      network,
+      source: 'xdcscan',
+    };
+  } catch (error) {
+    return handleApiError(error, 'getGasPrice');
+  }
+}
+
+// ─── 8. getBlockByNumber ────────────────────────────────────
+
+export async function getBlockByNumber(
+  blockNumber: string | number,
+  network: Network = 'mainnet'
+): Promise<BlockInfoResponse> {
+  logger.info('[XDCScan] getBlockByNumber', { blockNumber, network });
+
+  const xdcscanClient = createXdcscanClient(network);
+
+  try {
+    const blockHex = typeof blockNumber === 'number'
+      ? `0x${blockNumber.toString(16)}`
+      : blockNumber === 'latest'
+        ? 'latest'
+        : blockNumber;
+
+    const response = await xdcscanClient.get('', {
+      params: {
+        module: 'proxy',
+        action: 'eth_getBlockByNumber',
+        tag: blockHex,
+        boolean: 'true',
+      },
+    });
+
+    const block = response.data?.result;
+
+    if (!block || typeof block !== 'object') {
+      throw new Error('Block not found');
+    }
+
+    const blockNum = block.number ? parseInt(block.number, 16).toString() : String(blockNumber);
+    const timestamp = block.timestamp
+      ? new Date(parseInt(block.timestamp, 16) * 1000).toISOString()
+      : '';
+
+    return {
+      blockNumber: blockNum,
+      timestamp,
+      hash: block.hash || '',
+      miner: block.miner || block.author || '',
+      gasUsed: block.gasUsed ? String(parseInt(block.gasUsed, 16)) : '0',
+      gasLimit: block.gasLimit ? String(parseInt(block.gasLimit, 16)) : '0',
+      transactions: Array.isArray(block.transactions) ? block.transactions.length : 0,
+      network,
+      source: 'xdcscan',
+      explorerUrl: `${getExplorerBaseUrl(network)}/block/${blockNum}`,
+    };
+  } catch (error) {
+    return handleApiError(error, 'getBlockByNumber');
+  }
+}
+
+// ─── 9. getFailedTransactions ───────────────────────────────
+
+export async function getFailedTransactions(
+  address: string,
+  network: Network = 'mainnet',
+  limit: number = 10
+): Promise<TransactionsResponse> {
+  logger.info('[XDCScan] getFailedTransactions', { address, network, limit });
+
+  try {
+    const txResponse = await getTransactions(address, network, 1, 100);
+    const failed = txResponse.transactions.filter(tx => tx.status === 'failed');
+
+    return {
+      address,
+      transactions: failed.slice(0, limit),
+      totalCount: failed.length,
+      network,
+      source: 'xdcscan',
+      explorerUrl: `${getExplorerBaseUrl(network)}/address/${address}`,
+    };
+  } catch (error) {
+    return handleApiError(error, 'getFailedTransactions');
+  }
+}
+
+// ─── 10. getFailedContractDeployments ───────────────────────
+
+export async function getFailedContractDeployments(
+  network: Network = 'mainnet',
+  limit: number = 10
+): Promise<{ deployments: Transaction[]; totalCount: number; network: Network; source: 'xdcscan' }> {
+  logger.info('[XDCScan] getFailedContractDeployments', { network, limit });
+
+  // This requires scanning recent blocks for failed contract creations.
+  // Without a specific address, we can't easily query this via XDCScan free API.
+  // Return empty with explanation.
+  return {
+    deployments: [],
+    totalCount: 0,
+    network,
+    source: 'xdcscan',
+  };
 }

@@ -92,56 +92,107 @@ function mockKimiResponse(prompt: string): string {
 
   logger.info('Mock parsing user message', { userMessage });
 
+  // ─── Helper: extract address ────────────────────────────────
+  const extractAddress = (msg: string): string => {
+    const match = msg.match(/(0x[0-9a-fA-F]{40}|xdc[0-9a-fA-F]{40}|txdc[0-9a-fA-F]{40})/);
+    return match ? match[1] : '';
+  };
+
+  const addr = extractAddress(userMessage);
+
+  // ─── 1. Alerts ──────────────────────────────────────────────
   if (lower.includes('alert') || lower.includes('notify')) {
     return JSON.stringify({ action: QueryAction.CREATE_ALERT, type: 'price_threshold', condition: { operator: '<', value: 0.02, currency: 'USD' } });
   }
 
+  // ─── 2. Help ────────────────────────────────────────────────
+  if (lower.includes('help') || lower === '?') {
+    return JSON.stringify({ action: QueryAction.HELP });
+  }
+
+  // ─── 3. Failed contract deployments ─────────────────────────
   if (lower.includes('failed contract deploy') || lower.includes('failed deploy')) {
     return JSON.stringify({ action: QueryAction.FAILED_CONTRACT_DEPLOYMENTS, period: '7d' });
   }
 
-  if (lower.includes('balance') || lower.includes('xdc')) {
-    const match = userMessage.match(/(0x[a-f0-9]+|xdc[a-f0-9]+)/i);
-    const wallet = match ? match[1] : 'xdc123';
-    return JSON.stringify({ action: QueryAction.WALLET_BALANCE, wallet });
-  }
-
+  // ─── 4. Contract deployer ───────────────────────────────────
   if (lower.includes('who deployed') || lower.includes('deployer')) {
-    const match = userMessage.match(/(0x[a-f0-9]+)/i);
-    const contract = match ? match[1] : '0x123';
+    const contract = extractAddress(userMessage) || '0x123';
     return JSON.stringify({ action: QueryAction.CONTRACT_DEPLOYER, contract });
   }
 
-  if (lower.startsWith('tx ') || lower.includes('transaction')) {
-    const match = userMessage.match(/(0x[a-f0-9]+)/i);
-    const txHash = match ? match[1] : '0xabc123';
+  // ─── 5. Contract verification ───────────────────────────────
+  if (lower.includes('verified') || lower.includes('verification')) {
+    const contract = extractAddress(userMessage) || '0x123';
+    return JSON.stringify({ action: QueryAction.CONTRACT_VERIFICATION, contract });
+  }
+
+  // ─── 6. Transaction detail (specific hash) ──────────────────
+  if (lower.startsWith('tx ') || (lower.includes('transaction') && lower.includes('0x'))) {
+    const txHash = extractAddress(userMessage) || '0xabc123';
     return JSON.stringify({ action: QueryAction.TRANSACTION_DETAIL, txHash });
   }
 
-  if (lower.includes('gas price') || lower.includes('gas')) {
-    return JSON.stringify({ action: QueryAction.GAS_PRICE, period: '1d' });
+  // ─── 7. Failed transactions ─────────────────────────────────
+  if (lower.includes('failed transaction') || lower.includes('failed tx')) {
+    return JSON.stringify({ action: QueryAction.FAILED_TRANSACTIONS, address: addr });
   }
 
-  if (lower.includes('block ') || lower.match(/block\s+\d+/)) {
+  // ─── 8. Large transfers ─────────────────────────────────────
+  if (lower.includes('large transfer') || lower.includes('whale') || lower.includes('big transfer')) {
+    return JSON.stringify({ action: QueryAction.LARGE_TRANSFERS, address: addr, threshold: 1000 });
+  }
+
+  // ─── 9. Wallet activity ─────────────────────────────────────
+  if (lower.includes('activity') || lower.includes('stats') || lower.includes('overview')) {
+    return JSON.stringify({ action: QueryAction.WALLET_ACTIVITY, address: addr });
+  }
+
+  // ─── 10. Token balance ──────────────────────────────────────
+  if (lower.includes('token')) {
+    return JSON.stringify({ action: QueryAction.TOKEN_BALANCE, address: addr });
+  }
+
+  // ─── 11. NFT balance ────────────────────────────────────────
+  if (lower.includes('nft')) {
+    return JSON.stringify({ action: QueryAction.NFT_BALANCE, address: addr });
+  }
+
+  // ─── 12. Gas price ──────────────────────────────────────────
+  if (lower.includes('gas price') || lower.includes('gas')) {
+    return JSON.stringify({ action: QueryAction.GAS_PRICE });
+  }
+
+  // ─── 13. Block info ─────────────────────────────────────────
+  if (lower.includes('block ')) {
     const match = userMessage.match(/(\d+)/);
-    const blockNumber = match ? parseInt(match[1]) : 12345;
+    const blockNumber = match ? parseInt(match[1]) : 'latest';
     return JSON.stringify({ action: QueryAction.BLOCK_INFO, blockNumber });
   }
 
-  if (lower.includes('token')) {
-    const match = userMessage.match(/(0x[a-f0-9]+|xdc[a-f0-9]+)/i);
-    const wallet = match ? match[1] : 'xdc123';
-    return JSON.stringify({ action: QueryAction.TOKEN_BALANCE, wallet });
+  // ─── 14. Network stats ──────────────────────────────────────
+  if (lower.includes('network stat') || lower.includes('chain stat')) {
+    return JSON.stringify({ action: QueryAction.NETWORK_STATS });
   }
 
-  if (lower.includes('nft')) {
-    const match = userMessage.match(/(0x[a-f0-9]+|xdc[a-f0-9]+)/i);
-    const wallet = match ? match[1] : 'xdc123';
-    return JSON.stringify({ action: QueryAction.NFT_BALANCE, wallet });
+  // ─── 15. List alerts ────────────────────────────────────────
+  if (lower.includes('list alert') || lower.includes('my alert') || lower.includes('show alert')) {
+    return JSON.stringify({ action: QueryAction.LIST_ALERTS });
   }
 
-  if (lower.includes('help') || lower === '?') {
-    return JSON.stringify({ action: QueryAction.HELP });
+  // ─── 16. Delete alert ───────────────────────────────────────
+  if (lower.includes('delete alert') || lower.includes('remove alert')) {
+    return JSON.stringify({ action: QueryAction.DELETE_ALERT });
+  }
+
+  // ─── 17. Transactions (must check BEFORE balance) ───────────
+  if (lower.includes('transaction') || lower.includes('txs') || lower.includes('history')) {
+    return JSON.stringify({ action: QueryAction.TRANSACTIONS, address: addr });
+  }
+
+  // ─── 18. Balance (catch-all for address mentions) ───────────
+  if (lower.includes('balance') || addr) {
+    return JSON.stringify({ action: QueryAction.WALLET_BALANCE, address: addr });
   }
 
   // Default: unknown

@@ -14,8 +14,8 @@ const envSchema = z.object({
   KIMI_MODEL: z.string().optional().default('moonshot-v1-8k'),
   
   // ── Blockchain APIs ─────────────────────────────────────────
-  BLOCKSCOUT_API: z.string().url().optional(),
-  XDCSCAN_API: z.string().url().optional(),
+  XDCSCAN_API: z.string().url().optional().default('https://api.xdcscan.io/api'),
+  XDCSCAN_TESTNET_API: z.string().url().optional().default('https://api-testnet.xdcscan.io/api'),
   
   // ── Twilio (WhatsApp) ───────────────────────────────────────
   TWILIO_ACCOUNT_SID: z.string().min(1, 'TWILIO_ACCOUNT_SID is required'),

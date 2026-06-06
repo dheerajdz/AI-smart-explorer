@@ -1,19 +1,19 @@
 import { logger } from '../utils/logger';
-import { commandHandler } from './commandHandler';
-import { parseQuery, executeQuery, QueryResult } from './ai';
+import { keywordRouter } from './keywordRouter';
 
 export interface RouterResponse {
   text: string;
 }
 
 /**
- * Route incoming WhatsApp/Telegram messages.
+ * Route incoming messages to the appropriate handler.
  *
- * Flow:
- *   1. If message starts with "/" → use legacy commandHandler
- *   2. Otherwise → send to AI queryParser
- *   3. Route parsed query through executeQuery (queryRouter)
- *   4. Return formatted response
+ * NOTE: Slash commands are handled directly by each bot
+ * (Telegram via bot.command(), WhatsApp via messageHandler).
+ * This function only handles natural language messages.
+ *
+ * CURRENT: Uses keyword-based routing (fast, reliable, no API needed).
+ * TODO: Re-enable AI parsing after hackathon/demo.
  */
 export async function messageRouter(
   message: string,
@@ -23,15 +23,22 @@ export async function messageRouter(
 
   logger.info('Routing message', { userId, message: trimmedMessage });
 
-  // ─── 1. Legacy slash commands ───────────────────────────────
-  if (trimmedMessage.startsWith('/')) {
-    const parts = trimmedMessage.split(/\s+/);
-    const command = parts[0];
-    const args = parts.slice(1);
-    return commandHandler(command, args, userId);
-  }
+  // ─── Keyword-based routing (production-ready) ───────────────
+  return keywordRouter(trimmedMessage, userId);
 
-  // ─── 2. AI natural language parsing ─────────────────────────
+  // ─── AI routing (disabled for now) ──────────────────────────
+  // To re-enable after demo:
+  // 1. Uncomment below
+  // 2. Fix Kimi API key check
+  // 3. Expand mock parser patterns
+  // 4. Add /debug command for troubleshooting
+  /*
+  const { parseQuery, executeQuery } = await import('./ai');
+  const { detectNetwork } = await import('../utils/network');
+
+  const addressMatch = trimmedMessage.match(/\b(xdc[0-9a-fA-F]{40}|txdc[0-9a-fA-F]{40}|0x[0-9a-fA-F]{40})\b/);
+  const detectedNetwork = addressMatch ? detectNetwork(addressMatch[0]) : 'mainnet';
+
   let parsed;
   try {
     parsed = await parseQuery(trimmedMessage);
@@ -40,12 +47,14 @@ export async function messageRouter(
     return { text: '❌ Sorry, I could not understand that. Try typing "help" for examples.' };
   }
 
-  // ─── 3. Execute parsed query ────────────────────────────────
+  parsed.network = parsed.network || detectedNetwork;
+
   try {
-    const result: QueryResult = await executeQuery(parsed);
+    const result = await executeQuery(parsed);
     return { text: result.text };
   } catch (err) {
     logger.error('[messageRouter] executeQuery failed', { action: parsed.action, error: err });
     return { text: '❌ Something went wrong while fetching data. Please try again later.' };
   }
+  */
 }

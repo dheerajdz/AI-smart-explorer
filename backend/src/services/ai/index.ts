@@ -10,3 +10,4 @@ export { executeQuery } from './queryRouter';
 export type { QueryResult } from './queryRouter';
 export type { ParsedQuery } from '../../types';
 export { QueryAction } from '../../types';
+export { detectNetwork, isValidXdcAddress, getTxExplorerUrl, getAddressExplorerUrl } from '../../utils/network';

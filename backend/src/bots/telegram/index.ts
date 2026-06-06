@@ -15,8 +15,10 @@ import {
   untrackCommand,
   listCommand,
   balanceCommand,
+  txCommand,
   priceCommand,
   statusCommand,
+  helpCommand,
 } from './commands';
 import { messageRouter } from '../../services/messageRouter';
 
@@ -30,8 +32,10 @@ export function createBot(): Telegraf {
   bot.command('untrack', untrackCommand);
   bot.command('list', listCommand);
   bot.command('balance', balanceCommand);
+  bot.command('tx', txCommand);
   bot.command('price', priceCommand);
   bot.command('status', statusCommand);
+  bot.command('help', helpCommand);
 
   /* -------------------- Callbacks -------------------- */
   bot.action('action_signup', handleSignupAction);

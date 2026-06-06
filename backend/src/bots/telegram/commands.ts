@@ -6,6 +6,29 @@ import {
   ConversationStateService,
   ConversationState,
 } from '../../services/conversation/ConversationState';
+import { messageRouter } from '../../services/messageRouter';
+import { isValidXdcAddress, detectNetwork, getExplorerBaseUrl } from '../../utils/network';
+import {
+  getWalletBalance,
+  getTransactions,
+  getGasPrice,
+} from '../../services/blockchain';
+import * as walletService from '../../services/walletService';
+import {
+  cmdBalance,
+  cmdTransactions,
+  cmdTrack,
+  cmdUntrack,
+  cmdList,
+  cmdGasPrice,
+  cmdBlockInfo,
+  cmdFailedTransactions,
+  cmdWalletActivity,
+  cmdLargeTransfers,
+  cmdPrice,
+  cmdStatus,
+  cmdHelp,
+} from '../../services/blockchainCommands';
 
 /* ------------------------------------------------------------------ */
 /*  /start  — onboarding menu                                          */
@@ -272,15 +295,29 @@ export async function handleTextMessage(ctx: Context): Promise<void> {
     return;
   }
 
-  const state = await ConversationStateService.getState(telegramId);
+  const input = text.trim();
 
-  if (!state) {
-    // No active conversation — show the start menu
-    await startCommand(ctx);
+  // Skip slash commands — let bot.command() handlers take over
+  if (input.startsWith('/')) {
     return;
   }
 
-  const input = text.trim();
+  // ─── Keyword shortcuts (no slash needed) ────────────────────
+  // Examples: "b xdc...", "t xdc...", "gas", "status"
+  const keywordResult = await handleKeywordShortcut(input, String(telegramId));
+  if (keywordResult) {
+    await ctx.reply(keywordResult, { parse_mode: 'Markdown' });
+    return;
+  }
+
+  const state = await ConversationStateService.getState(telegramId);
+
+  if (!state) {
+    // No active conversation — route to keyword router
+    const response = await messageRouter(input, String(telegramId));
+    await ctx.reply(response.text, { parse_mode: 'Markdown' });
+    return;
+  }
 
   switch (state.step) {
     case 'awaiting_signup_email':
@@ -535,34 +572,175 @@ async function processSigninOTP(ctx: Context, telegramId: number, otp: string): 
 }
 
 /* ------------------------------------------------------------------ */
-/*  Legacy placeholder commands                                        */
+/*  Blockchain commands                                                */
 /* ------------------------------------------------------------------ */
+
 export async function trackCommand(ctx: Context): Promise<void> {
-  logger.info('Command: /track', { from: ctx.from?.id });
-  await ctx.reply('🔔 Wallet tracking is coming soon!');
+  const telegramId = ctx.from?.id;
+  const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
+  const parts = text.split(/\s+/);
+  const address = parts[1] || '';
+
+  if (!address) {
+    await ctx.reply(
+      '🔔 *Track Wallet*\n\n' +
+        'Usage: `/track <address>`\n\n' +
+        'Examples:\n' +
+        '• `/track xdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020`\n' +
+        '• `/track txdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020`',
+      { parse_mode: 'Markdown' }
+    );
+    return;
+  }
+
+  const result = cmdTrack(address, String(telegramId));
+  await ctx.reply(result.text, { parse_mode: 'Markdown' });
 }
 
 export async function untrackCommand(ctx: Context): Promise<void> {
-  logger.info('Command: /untrack', { from: ctx.from?.id });
-  await ctx.reply('🔕 Wallet untracking is coming soon!');
+  const telegramId = ctx.from?.id;
+  const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
+  const parts = text.split(/\s+/);
+  const address = parts[1] || '';
+
+  if (!address) {
+    await ctx.reply('Usage: `/untrack <address>`', { parse_mode: 'Markdown' });
+    return;
+  }
+
+  const result = cmdUntrack(address, String(telegramId));
+  await ctx.reply(result.text, { parse_mode: 'Markdown' });
 }
 
 export async function listCommand(ctx: Context): Promise<void> {
-  logger.info('Command: /list', { from: ctx.from?.id });
-  await ctx.reply('📋 Your tracked wallets will appear here soon.');
+  const telegramId = ctx.from?.id;
+  const result = cmdList(String(telegramId));
+  await ctx.reply(result.text, { parse_mode: 'Markdown' });
 }
 
 export async function balanceCommand(ctx: Context): Promise<void> {
-  logger.info('Command: /balance', { from: ctx.from?.id });
-  await ctx.reply('💰 Balance lookup is coming soon!');
+  const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
+  const parts = text.split(/\s+/);
+  const address = parts[1] || '';
+
+  if (!address) {
+    await ctx.reply(
+      '💰 *Balance Lookup*\n\n' +
+        'Usage: `/balance <address>`\n\n' +
+        'Examples:\n' +
+        '• `/balance xdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020`\n' +
+        '• `/balance txdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020`',
+      { parse_mode: 'Markdown' }
+    );
+    return;
+  }
+
+  const result = await cmdBalance(address);
+  await ctx.reply(result.text, { parse_mode: 'Markdown' });
+}
+
+export async function txCommand(ctx: Context): Promise<void> {
+  const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
+  const parts = text.split(/\s+/);
+  const address = parts[1] || '';
+
+  if (!address) {
+    await ctx.reply(
+      '📄 *Transaction History*\n\n' +
+        'Usage: `/tx <address>`\n\n' +
+        'Examples:\n' +
+        '• `/tx xdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020`\n' +
+        '• `/tx txdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020`',
+      { parse_mode: 'Markdown' }
+    );
+    return;
+  }
+
+  const result = await cmdTransactions(address, 5);
+  await ctx.reply(result.text, { parse_mode: 'Markdown' });
 }
 
 export async function priceCommand(ctx: Context): Promise<void> {
-  logger.info('Command: /price', { from: ctx.from?.id });
-  await ctx.reply('📈 Price data is coming soon!');
+  const result = cmdPrice();
+  await ctx.reply(result.text, { parse_mode: 'Markdown' });
 }
 
 export async function statusCommand(ctx: Context): Promise<void> {
-  logger.info('Command: /status', { from: ctx.from?.id });
-  await ctx.reply('🌐 Network status is coming soon!');
+  const result = await cmdStatus();
+  await ctx.reply(result.text, { parse_mode: 'Markdown' });
+}
+
+export async function helpCommand(ctx: Context): Promise<void> {
+  const result = cmdHelp();
+  await ctx.reply(result.text, { parse_mode: 'Markdown' });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Keyword shortcuts — no slash needed                                */
+/* ------------------------------------------------------------------ */
+
+async function handleKeywordShortcut(
+  input: string,
+  userId: string
+): Promise<string | null> {
+  const parts = input.split(/\s+/);
+  const keyword = parts[0].toLowerCase();
+  const rest = parts.slice(1).join(' ');
+
+  // Extract address from rest of message
+  const addrMatch = rest.match(/(0x[0-9a-fA-F]{40}|xdc[0-9a-fA-F]{40}|txdc[0-9a-fA-F]{40})/);
+  const address = addrMatch ? addrMatch[1] : '';
+
+  switch (keyword) {
+    case 'b':
+    case 'bal':
+      if (!address) return null;
+      return (await cmdBalance(address)).text;
+
+    case 't':
+    case 'txs':
+      if (!address) return null;
+      return (await cmdTransactions(address, 5)).text;
+
+    case 'gas':
+      return (await cmdGasPrice()).text;
+
+    case 'block':
+      return (await cmdBlockInfo(rest || 'latest')).text;
+
+    case 'status':
+      return (await cmdStatus()).text;
+
+    case 'track':
+      if (!address) return null;
+      return cmdTrack(address, userId).text;
+
+    case 'untrack':
+      if (!address) return null;
+      return cmdUntrack(address, userId).text;
+
+    case 'list':
+      return cmdList(userId).text;
+
+    case 'activity':
+      if (!address) return null;
+      return (await cmdWalletActivity(address)).text;
+
+    case 'failed':
+      if (!address) return null;
+      return (await cmdFailedTransactions(address, 5)).text;
+
+    case 'large':
+      if (!address) return null;
+      return (await cmdLargeTransfers(address, 1000)).text;
+
+    case 'price':
+      return cmdPrice().text;
+
+    case 'help':
+      return cmdHelp().text;
+
+    default:
+      return null;
+  }
 }

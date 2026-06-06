@@ -78,7 +78,7 @@ export async function parseQuery(userMessage: string): Promise<ParsedQuery> {
     ...parsed,
   };
 
-  logger.info('[queryParser] Parse successful', { action: result.action });
+  logger.info('[queryParser] Parse successful', { action: result.action, address: result.address || result.wallet || 'none' });
   return result;
 }
 

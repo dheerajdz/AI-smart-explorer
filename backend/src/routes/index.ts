@@ -1,12 +1,14 @@
 import { Router } from 'express';
-import healthRoutes from './health';
-import authRoutes from './auth';
-import chatRoutes from './chatRoutes';
+import healthRouter from './health';
+import authRouter from './auth';
+import blockchainRouter from './blockchain';
+import whatsappRouter from '../bots/whatsapp';
 
 const router = Router();
 
-router.use('/health', healthRoutes);
-router.use('/auth', authRoutes);
-router.use('/chat', chatRoutes);
+router.use('/health', healthRouter);
+router.use('/auth', authRouter);
+router.use('/api/blockchain', blockchainRouter);
+router.use(whatsappRouter);
 
 export default router;

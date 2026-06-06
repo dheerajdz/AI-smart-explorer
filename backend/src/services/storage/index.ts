@@ -1,7 +1,8 @@
 export {
-  getUserWallets,
-  addWallet,
-  removeWallet,
+  trackWallet,
+  untrackWallet,
   listWallets,
-  clearUserWallets,
+  getAllUsers,
+  getWalletsForUser,
+  type StoredWallet,
 } from './inMemoryStore';

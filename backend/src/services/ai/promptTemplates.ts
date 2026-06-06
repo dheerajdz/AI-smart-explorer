@@ -24,12 +24,19 @@ Supported actions:
 - balance              → Get XDC balance of an address
 - transactions         → Get transactions for an address
 - transaction_detail   → Get details of a specific tx hash
+- wallet_activity      → Get activity stats for an address
+- failed_transactions  → Get failed transactions for an address
+- large_transfers      → Get large transfers for an address
 - failed_contract_deployments → Find failed contract creations
+- contract_deployer    → Find who deployed a contract
 - contract_verification → Check if a contract is verified
 - gas_price            → Get current gas price
 - block_info           → Get block by number or hash
 - token_balance        → Get ERC-20 token balance
 - nft_balance          → Get NFT holdings
+- create_alert         → Create a price/activity alert
+- list_alerts          → List active alerts
+- delete_alert         → Delete an alert
 
 Examples:
 
