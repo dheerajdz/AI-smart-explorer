@@ -49,9 +49,9 @@ export async function startCommand(ctx: Context): Promise<void> {
   const existingUser = await AuthService.findByTelegramId(telegramId);
 
   if (existingUser) {
-    // User has auth account — show main menu
-    const { showMainMenu } = await import('./walletConnect');
-    await showMainMenu(ctx);
+    // User has auth account — show personalized welcome back
+    const { showWelcomeBack } = await import('./walletConnect');
+    await showWelcomeBack(ctx);
     return;
   }
 

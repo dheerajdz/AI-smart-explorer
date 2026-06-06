@@ -24,21 +24,107 @@ export async function messageHandler(from: string, body: string): Promise<void> 
 
   // ─── Slash commands ─────────────────────────────────────────
   if (trimmedBody.startsWith('/')) {
+    logger.info('WhatsApp: slash command detected');
     const result = await handleWhatsAppCommand(trimmedBody, from);
+    logger.info('WhatsApp: sending slash response', { resultLength: result.length });
     await sendWhatsAppMessage(from, result);
     return;
   }
 
+  // ─── Greetings ──────────────────────────────────────────────
+  const lower = trimmedBody.toLowerCase();
+  if (
+    lower === 'hi' ||
+    lower === 'hii' ||
+    lower === 'hello' ||
+    lower === 'hey' ||
+    lower === 'start'
+  ) {
+    await sendWelcomeMessage(from);
+    return;
+  }
+
+  // ─── Connect wallet intent ──────────────────────────────────
+  if (lower.includes('connect wallet') || lower.includes('add wallet') || lower.includes('link wallet')) {
+    logger.info('WhatsApp: connect wallet intent');
+    await sendWhatsAppMessage(
+      from,
+      '🔗 *Connect Wallet*\n\nPlease send me your XDC address.\n\nExample: `xdc1234...abcd` or `0xabcd...1234`'
+    );
+    return;
+  }
+
+  // ─── Address-only message → connect wallet + show balance ────
+  const addressMatch = trimmedBody.match(/\b(0x[0-9a-fA-F]{40}|xdc[0-9a-fA-F]{40}|txdc[0-9a-fA-F]{40})\b/);
+  if (addressMatch && trimmedBody.replace(addressMatch[0], '').trim().length === 0) {
+    const address = addressMatch[1];
+    logger.info('WhatsApp: address-only message', { address });
+
+    const { connectWallet } = await import('../../services/connectedWalletService');
+    const connectResult = await connectWallet(from, 'whatsapp', address);
+
+    const balanceResult = await cmdBalance(address);
+
+    await sendWhatsAppMessage(
+      from,
+      `${connectResult.message}\n\n${balanceResult.text}\n\n---\n\n💡 *Tip:* Try:\n• "transactions"\n• "activity"\n• "track this wallet"`
+    );
+    return;
+  }
+
   // ─── Keyword shortcuts (no slash) ───────────────────────────
+  logger.info('WhatsApp: checking keyword shortcuts');
   const keywordResult = await handleKeywordShortcut(trimmedBody, from);
   if (keywordResult) {
+    logger.info('WhatsApp: sending keyword response');
     await sendWhatsAppMessage(from, keywordResult);
     return;
   }
 
   // ─── Natural language ───────────────────────────────────────
+  logger.info('WhatsApp: routing to AI');
   const response = await messageRouter(trimmedBody, from);
+  logger.info('WhatsApp: sending AI response', { textLength: response.text.length });
   await sendWhatsAppMessage(from, response.text);
+}
+
+async function sendWelcomeMessage(from: string): Promise<void> {
+  const { hasConnectedWallet, getConnectedWallet } = await import('../../services/connectedWalletService');
+  const connected = await hasConnectedWallet(from, 'whatsapp');
+
+  if (connected) {
+    const wallet = await getConnectedWallet(from, 'whatsapp');
+    const address = wallet?.address ?? '';
+    const networkLabel = wallet?.network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet';
+    const shortAddr = address ? `${address.slice(0, 8)}...${address.slice(-6)}` : 'Unknown';
+
+    await sendWhatsAppMessage(
+      from,
+      `👋 *Welcome back!*\n\n` +
+        `Your connected wallet:\n` +
+        `${networkLabel} \`${shortAddr}\`\n\n` +
+        `What would you like to do?\n\n` +
+        `• "Balance"\n` +
+        `• "Transactions"\n` +
+        `• "Activity"\n` +
+        `• "Gas price"\n` +
+        `• "Track this wallet"\n` +
+        `• "Disconnect wallet"`
+    );
+  } else {
+    await sendWhatsAppMessage(
+      from,
+      `👋 *Welcome to Smart AI Explorer!*\n\n` +
+        `I am your AI assistant for the *XDC blockchain*.\n\n` +
+        `You can text me things like:\n` +
+        `• "Balance of xdc..."\n` +
+        `• "Show transactions"\n` +
+        `• "Gas price"\n` +
+        `• "Track wallet xdc..."\n\n` +
+        `To get started, connect your wallet:\n` +
+        `👉 Send: *connect wallet*`
+    );
+  }
 }
 
 async function handleWhatsAppCommand(message: string, userId: string): Promise<string> {

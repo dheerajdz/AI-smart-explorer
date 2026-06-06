@@ -19,10 +19,57 @@ export async function startWalletFlow(ctx: Context): Promise<void> {
   const connected = await hasConnectedWallet(String(telegramId), 'telegram');
 
   if (connected) {
-    await showMainMenu(ctx);
+    await showWelcomeBack(ctx);
   } else {
-    await showNetworkSelection(ctx);
+    await showWelcomeNew(ctx);
   }
+}
+
+async function showWelcomeNew(ctx: Context): Promise<void> {
+  const text =
+    `👋 *Welcome to Smart AI Explorer!*\n\n` +
+    `I am your AI assistant for the *XDC blockchain*.\n\n` +
+    `You can text me things like:\n` +
+    `• "Balance of xdc..."\n` +
+    `• "Show my transactions"\n` +
+    `• "Gas price"\n` +
+    `• "Track wallet xdc..."\n\n` +
+    `Let's connect your wallet first.`;
+
+  const keyboard = Markup.inlineKeyboard([
+    [
+      Markup.button.callback('🌐 XDC Mainnet', 'connect_network_mainnet'),
+      Markup.button.callback('🧪 XDC Testnet', 'connect_network_testnet'),
+    ],
+  ]);
+
+  await ctx.reply(text, { parse_mode: 'Markdown', ...keyboard });
+}
+
+export async function showWelcomeBack(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const wallet = await getConnectedWallet(String(telegramId), 'telegram');
+  const address = wallet?.address ?? '';
+  const networkLabel = wallet?.network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet';
+  const shortAddr = address ? `${address.slice(0, 8)}...${address.slice(-6)}` : 'Unknown';
+
+  const text =
+    `👋 *Welcome back!*\n\n` +
+    `Your connected wallet:\n` +
+    `${networkLabel} \`${shortAddr}\`\n\n` +
+    `What would you like to do?`;
+
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('💰 Balance', 'menu_balance')],
+    [Markup.button.callback('📜 Transactions', 'menu_transactions')],
+    [Markup.button.callback('🔔 Track Wallet', 'menu_track')],
+    [Markup.button.callback('🤖 Ask AI', 'menu_ask_ai')],
+    [Markup.button.callback('⚙️ Settings', 'menu_settings')],
+  ]);
+
+  await ctx.reply(text, { parse_mode: 'Markdown', ...keyboard });
 }
 
 /* ------------------------------------------------------------------ */

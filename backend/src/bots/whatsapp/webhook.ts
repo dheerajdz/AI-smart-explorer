@@ -20,7 +20,13 @@ export async function whatsappWebhook(req: Request, res: Response): Promise<void
   try {
     await messageHandler(fromNumber, messageBody);
   } catch (err) {
-    logger.error('Error handling WhatsApp message', { error: (err as Error).message });
+    logger.error('Error handling WhatsApp message', {
+      error: (err as Error).message,
+      stack: (err as Error).stack,
+    });
+    res.set('Content-Type', 'text/xml');
+    res.status(500).send('<Response><Message>Sorry, something went wrong.</Message></Response>');
+    return;
   }
 
   res.set('Content-Type', 'text/xml');

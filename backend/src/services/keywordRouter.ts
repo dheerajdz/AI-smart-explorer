@@ -42,6 +42,34 @@ export async function keywordRouter(
   // ─── Extract address ────────────────────────────────────────
   const addr = extractAddress(trimmed);
 
+  // ─── 0. Greetings ───────────────────────────────────────────
+  if (
+    lower === 'hi' ||
+    lower === 'hii' ||
+    lower === 'hello' ||
+    lower === 'hey' ||
+    lower === 'start'
+  ) {
+    return {
+      text:
+        '👋 *Welcome to Smart AI Explorer!*\n\n' +
+        'I am your AI assistant for the XDC blockchain.\n\n' +
+        '*What you can ask me:*\n' +
+        '• "Balance of xdc..."\n' +
+        '• "Show transactions for xdc..."\n' +
+        '• "Gas price"\n' +
+        '• "Block 12345"\n' +
+        '• "Track wallet xdc..."\n' +
+        '• "Failed contract deploys last week"\n\n' +
+        '*Or use commands:*\n' +
+        '• `/balance xdc...`\n' +
+        '• `/tx xdc...`\n' +
+        '• `/gas`\n' +
+        '• `/help`\n\n' +
+        'How can I help you today? 🚀',
+    };
+  }
+
   // ─── 1. Balance queries ─────────────────────────────────────
   if (lower.includes('balance') || lower.includes('how much')) {
     if (!addr) {
@@ -187,14 +215,25 @@ export async function keywordRouter(
     return { text: result.text };
   }
 
-  // ─── 14. Disconnect wallet ──────────────────────────────────
+  // ─── 14. Connect wallet ─────────────────────────────────────
+  if (lower.includes('connect wallet') || lower.includes('add wallet') || lower.includes('link wallet')) {
+    return {
+      text:
+        '🔗 *Connect Wallet*\n\n' +
+        'WhatsApp wallet connection is menu-driven.\n\n' +
+        'Send me your XDC address and I will save it for you.\n\n' +
+        'Example: `xdc1234...abcd`',
+    };
+  }
+
+  // ─── 15. Disconnect wallet ──────────────────────────────────
   if (lower.includes('disconnect') || lower.includes('remove wallet') || lower.includes('logout wallet')) {
     const { disconnectWallet } = await import('./connectedWalletService');
-    const result = await disconnectWallet(userId, 'telegram');
+    const result = await disconnectWallet(userId, 'whatsapp');
     return {
       text:
         result.success
-          ? '✅ *Wallet Disconnected*\n\nYour wallet has been removed. Use /start to connect a new one.'
+          ? '✅ *Wallet Disconnected*\n\nYour wallet has been removed. Send /start to connect a new one.'
           : '⚠️ No wallet found to disconnect.',
     };
   }
