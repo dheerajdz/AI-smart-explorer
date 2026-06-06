@@ -1,42 +1,51 @@
-// Temporary in-memory storage for wallets
-// Replace with MongoDB persistence later without changing service consumers
+import { detectNetwork, Network } from '../../utils/network';
 
-const walletsByUser = new Map<string, Set<string>>();
+export interface StoredWallet {
+  address: string;
+  network: Network;
+}
 
-export function getUserWallets(userId: string): Set<string> {
+const walletsByUser = new Map<string, Map<string, StoredWallet>>();
+
+export function trackWallet(address: string, userId: string): { alreadyTracked: boolean } {
+  const normalized = address.trim().toLowerCase();
+  const network = detectNetwork(normalized);
+
   if (!walletsByUser.has(userId)) {
-    walletsByUser.set(userId, new Set());
+    walletsByUser.set(userId, new Map());
   }
-  return walletsByUser.get(userId)!;
+
+  const userWallets = walletsByUser.get(userId)!;
+
+  if (userWallets.has(normalized)) {
+    return { alreadyTracked: true };
+  }
+
+  userWallets.set(normalized, { address: normalized, network });
+  return { alreadyTracked: false };
 }
 
-export function addWallet(userId: string, wallet: string): boolean {
-  const normalized = wallet.trim().toLowerCase();
-  if (!normalized) return false;
+export function untrackWallet(address: string, userId: string): { success: boolean } {
+  const normalized = address.trim().toLowerCase();
+  const userWallets = walletsByUser.get(userId);
 
-  const wallets = getUserWallets(userId);
-  if (wallets.has(normalized)) return false;
+  if (!userWallets || !userWallets.has(normalized)) {
+    return { success: false };
+  }
 
-  wallets.add(normalized);
-  return true;
+  userWallets.delete(normalized);
+  return { success: true };
 }
 
-export function removeWallet(userId: string, wallet: string): boolean {
-  const normalized = wallet.trim().toLowerCase();
-  if (!normalized) return false;
-
-  const wallets = getUserWallets(userId);
-  if (!wallets.has(normalized)) return false;
-
-  wallets.delete(normalized);
-  return true;
+export function listWallets(userId: string): StoredWallet[] {
+  const userWallets = walletsByUser.get(userId);
+  return userWallets ? Array.from(userWallets.values()) : [];
 }
 
-export function listWallets(userId: string): string[] {
-  const wallets = getUserWallets(userId);
-  return Array.from(wallets);
+export function getAllUsers(): string[] {
+  return Array.from(walletsByUser.keys());
 }
 
-export function clearUserWallets(userId: string): void {
-  walletsByUser.delete(userId);
+export function getWalletsForUser(userId: string): StoredWallet[] {
+  return listWallets(userId);
 }

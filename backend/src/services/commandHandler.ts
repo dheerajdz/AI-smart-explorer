@@ -75,17 +75,13 @@ function handleTrack(userId: string, args: string[]): CommandResponse {
     return { text: '❌ Please provide a wallet address.\n\nUsage: /track <wallet>' };
   }
 
-  const result = walletService.trackWallet(userId, wallet);
-
-  if (!result.success) {
-    return { text: '❌ Failed to track wallet. Please try again.' };
-  }
+  const result = walletService.trackWallet(wallet, userId);
 
   if (result.alreadyTracked) {
-    return { text: `⚠️ Wallet already tracked\n\nWallet:\n${result.wallet}` };
+    return { text: `⚠️ Wallet already tracked\n\nWallet:\n${wallet}` };
   }
 
-  return { text: `✅ Wallet tracking enabled\n\nWallet:\n${result.wallet}` };
+  return { text: `✅ Wallet tracking enabled\n\nWallet:\n${wallet}` };
 }
 
 function handleUntrack(userId: string, args: string[]): CommandResponse {
@@ -95,16 +91,13 @@ function handleUntrack(userId: string, args: string[]): CommandResponse {
     return { text: '❌ Please provide a wallet address.\n\nUsage: /untrack <wallet>' };
   }
 
-  const result = walletService.untrackWallet(userId, wallet);
+  const result = walletService.untrackWallet(wallet, userId);
 
   if (!result.success) {
-    if (result.notFound) {
-      return { text: `⚠️ Wallet not found in tracking list\n\nWallet:\n${result.wallet}` };
-    }
-    return { text: '❌ Failed to remove wallet. Please try again.' };
+    return { text: `⚠️ Wallet not found in tracking list\n\nWallet:\n${wallet}` };
   }
 
-  return { text: `✅ Wallet removed from tracking\n\nWallet:\n${result.wallet}` };
+  return { text: `✅ Wallet removed from tracking\n\nWallet:\n${wallet}` };
 }
 
 function handleList(userId: string): CommandResponse {
@@ -114,6 +107,6 @@ function handleList(userId: string): CommandResponse {
     return { text: 'No tracked wallets.\n\nUse /track <wallet> to start tracking.' };
   }
 
-  const list = wallets.map((wallet, index) => `${index + 1}. ${wallet}`).join('\n');
+  const list = wallets.map((wallet, index) => `${index + 1}. ${wallet.address} (${wallet.network})`).join('\n');
   return { text: `Tracked Wallets\n\n${list}` };
 }
