@@ -1,6 +1,24 @@
+import { Telegraf } from 'telegraf';
 import { logger } from '../../utils/logger';
 
-export async function sendTelegramNotification(chatId: number, message: string): Promise<void> {
-  logger.info('Sending Telegram notification', { chatId, messageLength: message.length });
-  // TODO: Use bot.telegram.sendMessage or HTTP call to Bot API
+let botInstance: Telegraf | null = null;
+
+export function setBotInstance(bot: Telegraf): void {
+  botInstance = bot;
+}
+
+export async function sendTelegramNotification(userId: string, message: string): Promise<void> {
+  if (!botInstance) {
+    logger.warn('[telegramNotify] No bot instance set');
+    return;
+  }
+
+  try {
+    await botInstance.telegram.sendMessage(userId, message, {
+      parse_mode: 'Markdown',
+    });
+    logger.info('[telegramNotify] Sent notification', { userId });
+  } catch (error) {
+    logger.error('[telegramNotify] Failed to send notification', { userId, error });
+  }
 }

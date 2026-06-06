@@ -1,7 +1,7 @@
 export * from './auth';
-export * from './conversation';
-export * from './email';
-export * from './otp';
-export { messageRouter } from './messageRouter';
-export { commandHandler } from './commandHandler';
-export * as walletService from './walletService';
+export * from './ai';
+export * from './blockchain';
+export * from './commandHandler';
+export * from './messageRouter';
+export * from './notification';
+export * from './walletService';

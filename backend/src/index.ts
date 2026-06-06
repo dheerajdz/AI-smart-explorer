@@ -3,13 +3,14 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import routes from './routes';
-import { createTelegramBot } from './bots';
+import { createTelegramBot, createWhatsAppBot } from './bots';
 import { connectMongo, redis } from './database';
 import { startCronJobs } from './cron/jobs';
 import { requestLogger } from './middleware/requestLogger';
 import { errorHandler } from './middleware/errorHandler';
 import { env } from './config/env';
 import { logger } from './utils/logger';
+import { setBotInstance } from './services/notification/telegramNotify';
 
 async function main(): Promise<void> {
   await connectMongo();
@@ -31,7 +32,11 @@ async function main(): Promise<void> {
   });
 
   const bot = createTelegramBot();
-  
+  setBotInstance(bot);
+
+  // Start cron jobs
+  startCronJobs();
+
   // Launch with error handling to prevent crash on 409 conflicts
   bot.launch().catch((err) => {
     logger.error('Telegram bot launch failed', { error: (err as Error).message });
@@ -39,9 +44,9 @@ async function main(): Promise<void> {
   });
   logger.info('🤖 Telegram bot launched');
 
+  // WhatsApp bot
+  createWhatsAppBot();
   logger.info('📱 WhatsApp webhook ready at POST /webhook/whatsapp');
-
-  startCronJobs();
 
   process.once('SIGINT', () => {
     bot.stop('SIGINT');

@@ -1,2 +1,21 @@
-export { getBlockscoutBalance, getBlockscoutTxList } from './blockscoutService';
-export { getXdcscanBalance, getXdcscanTxList } from './xdcscanService';
+export {
+  getWalletBalance,
+  getTransactions,
+  getWalletActivity,
+  getLargeTransfers,
+  getTransactionByHash,
+  getTokenBalance,
+  getGasPrice,
+  getBlockByNumber,
+  getFailedTransactions,
+  getFailedContractDeployments,
+  type WalletBalanceResponse,
+  type TransactionsResponse,
+  type WalletActivity,
+  type LargeTransfersResponse,
+  type TokenBalanceResponse,
+  type GasPriceResponse,
+  type BlockInfoResponse,
+  type Transaction,
+  type LargeTransfer,
+} from './xdcscanService';

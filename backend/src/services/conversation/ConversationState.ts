@@ -6,7 +6,8 @@ export type ConversationStep =
   | 'awaiting_signup_email'
   | 'awaiting_signup_otp'
   | 'awaiting_signup_wallet'
-  | 'awaiting_signin_otp';
+  | 'awaiting_signin_otp'
+  | 'enter_wallet_address';
 
 export interface ConversationState {
   step: ConversationStep;
@@ -14,6 +15,7 @@ export interface ConversationState {
   telegramUsername?: string;
   action?: 'signup' | 'signin';
   email?: string;
+  network?: 'mainnet' | 'testnet';
 }
 
 const CONVERSATION_TTL_SECONDS = 600; // 10 minutes

@@ -1,0 +1,408 @@
+// ============================================================
+// blockchainCommands.ts
+// Shared command logic for Telegram and WhatsApp bots.
+// Each function is platform-agnostic — returns raw data + text.
+// Platform-specific formatting happens in the bot layer.
+// ============================================================
+
+import { logger } from '../utils/logger';
+import { Network, detectNetwork, isValidXdcAddress, getExplorerBaseUrl } from '../utils/network';
+import {
+  getWalletBalance,
+  getTransactions,
+  getWalletActivity,
+  getLargeTransfers,
+  getGasPrice,
+  getBlockByNumber,
+  getFailedTransactions,
+} from './blockchain';
+import * as walletService from './walletService';
+
+// ─── Types ──────────────────────────────────────────────────
+
+export interface CommandResult {
+  success: boolean;
+  text: string;
+  rawData?: any;
+}
+
+// ─── Helper ─────────────────────────────────────────────────
+
+function formatError(context: string, error: unknown): CommandResult {
+  logger.error(`[blockchainCommands] ${context} failed`, { error });
+  return { success: false, text: '❌ Failed to fetch data. Please try again later.' };
+}
+
+// ─── 1. Balance ─────────────────────────────────────────────
+
+export async function cmdBalance(address: string): Promise<CommandResult> {
+  if (!isValidXdcAddress(address)) {
+    return {
+      success: false,
+      text: '❌ Invalid address. Must start with `xdc`, `txdc`, or `0x` (42 chars).',
+    };
+  }
+
+  try {
+    const network = detectNetwork(address);
+    const data = await getWalletBalance(address, network);
+
+    return {
+      success: true,
+      text:
+        `💰 *Wallet Balance*\n\n` +
+        `Network: ${network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
+        `Address: \`${data.address}\`\n` +
+        `Balance: **${data.balanceXDC} XDC**\n\n` +
+        `[View on Explorer](${data.explorerUrl})`,
+      rawData: data,
+    };
+  } catch (err) {
+    return formatError('cmdBalance', err);
+  }
+}
+
+// ─── 2. Transactions ────────────────────────────────────────
+
+export async function cmdTransactions(address: string, limit: number = 5): Promise<CommandResult> {
+  if (!isValidXdcAddress(address)) {
+    return {
+      success: false,
+      text: '❌ Invalid address. Must start with `xdc`, `txdc`, or `0x` (42 chars).',
+    };
+  }
+
+  try {
+    const network = detectNetwork(address);
+    const data = await getTransactions(address, network, 1, limit);
+    const explorerUrl = `${getExplorerBaseUrl(network)}/address/${address}`;
+
+    let text =
+      `📄 *Recent Transactions*\n\n` +
+      `Network: ${network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
+      `Address: \`${data.address}\`\n` +
+      `Showing: ${data.transactions.length} of ${data.totalCount}\n\n`;
+
+    if (data.transactions.length > 0) {
+      data.transactions.forEach((tx, i) => {
+        const value = Number(tx.value) / 1e18;
+        const status = tx.status === 'success' ? '✅' : tx.status === 'failed' ? '❌' : '⏳';
+        text += `${i + 1}. ${status} \`${tx.hash.slice(0, 20)}...\` — ${value} XDC\n`;
+      });
+      text += `\n[View on Explorer](${explorerUrl})`;
+    } else {
+      text += 'No transactions found.';
+    }
+
+    return { success: true, text, rawData: data };
+  } catch (err) {
+    return formatError('cmdTransactions', err);
+  }
+}
+
+// ─── 3. Track Wallet ────────────────────────────────────────
+
+export function cmdTrack(address: string, userId: string): CommandResult {
+  if (!isValidXdcAddress(address)) {
+    return {
+      success: false,
+      text: '❌ Invalid address. Must start with `xdc`, `txdc`, or `0x` (42 chars).',
+    };
+  }
+
+  const network = detectNetwork(address);
+  const result = walletService.trackWallet(address, userId);
+
+  if (result.alreadyTracked) {
+    return {
+      success: true,
+      text: `⚠️ This wallet is already tracked on ${network}.`,
+    };
+  }
+
+  return {
+    success: true,
+    text:
+      `✅ *Wallet Tracked*\n\n` +
+      `Address: \`${address}\`\n` +
+      `Network: ${network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n\n` +
+      `You will receive notifications for new transactions.`,
+  };
+}
+
+// ─── 4. Untrack Wallet ──────────────────────────────────────
+
+export function cmdUntrack(address: string, userId: string): CommandResult {
+  const result = walletService.untrackWallet(address, userId);
+
+  if (!result.success) {
+    return {
+      success: false,
+      text: '❌ Wallet not found in your tracked list.',
+    };
+  }
+
+  return {
+    success: true,
+    text:
+      `🔕 *Wallet Untracked*\n\n` +
+      `Address: \`${address}\`\n\n` +
+      `You will no longer receive notifications.`,
+  };
+}
+
+// ─── 5. List Tracked Wallets ────────────────────────────────
+
+export function cmdList(userId: string): CommandResult {
+  const wallets = walletService.listWallets(userId);
+
+  if (wallets.length === 0) {
+    return {
+      success: true,
+      text:
+        '📋 *Tracked Wallets*\n\n' +
+        'You are not tracking any wallets yet.\n\n' +
+        'Use `/track <address>` to start tracking.',
+    };
+  }
+
+  let text = '📋 *Tracked Wallets*\n\n';
+  wallets.forEach((w, i) => {
+    text += `${i + 1}. \`${w.address}\` ${w.network === 'testnet' ? '(🧪 Testnet)' : '(🌐 Mainnet)'}\n`;
+  });
+
+  return { success: true, text };
+}
+
+// ─── 6. Gas Price ───────────────────────────────────────────
+
+export async function cmdGasPrice(network: Network = 'mainnet'): Promise<CommandResult> {
+  try {
+    const data = await getGasPrice(network);
+    return {
+      success: true,
+      text:
+        `⛽ *Gas Price*\n\n` +
+        `Network: ${network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
+        `Safe: **${data.safeGasPrice} Gwei**\n` +
+        `Standard: **${data.proposeGasPrice} Gwei**\n` +
+        `Fast: **${data.fastGasPrice} Gwei**`,
+      rawData: data,
+    };
+  } catch (err) {
+    return formatError('cmdGasPrice', err);
+  }
+}
+
+// ─── 7. Block Info ──────────────────────────────────────────
+
+export async function cmdBlockInfo(blockNumber: string | number, network: Network = 'mainnet'): Promise<CommandResult> {
+  try {
+    const data = await getBlockByNumber(blockNumber, network);
+    return {
+      success: true,
+      text:
+        `📦 *Block Info*\n\n` +
+        `Network: ${network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
+        `Block: **${data.blockNumber}**\n` +
+        `Hash: \`${data.hash}\`\n` +
+        `Miner: \`${data.miner}\`\n` +
+        `Transactions: **${data.transactions}**\n` +
+        `Gas Used: ${data.gasUsed}\n` +
+        `Timestamp: ${data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A'}\n\n` +
+        `[View on Explorer](${data.explorerUrl})`,
+      rawData: data,
+    };
+  } catch (err) {
+    return formatError('cmdBlockInfo', err);
+  }
+}
+
+// ─── 8. Failed Transactions ─────────────────────────────────
+
+export async function cmdFailedTransactions(address: string, limit: number = 5): Promise<CommandResult> {
+  if (!isValidXdcAddress(address)) {
+    return {
+      success: false,
+      text: '❌ Invalid address. Must start with `xdc`, `txdc`, or `0x` (42 chars).',
+    };
+  }
+
+  try {
+    const network = detectNetwork(address);
+    const data = await getFailedTransactions(address, network, limit);
+    const explorerUrl = `${getExplorerBaseUrl(network)}/address/${address}`;
+    const count = data.transactions.length;
+
+    let text =
+      `❌ *Failed Transactions*\n\n` +
+      `Network: ${network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
+      `Address: \`${data.address}\`\n` +
+      `Total Failed: **${data.totalCount}**\n\n`;
+
+    if (count > 0) {
+      data.transactions.forEach((tx, i) => {
+        text += `${i + 1}. \`${tx.hash.slice(0, 20)}...\` — ${Number(tx.value) / 1e18} XDC\n`;
+      });
+      text += `\n[View on Explorer](${explorerUrl})`;
+    } else {
+      text += `No failed transactions found in recent history. 🎉`;
+    }
+
+    return { success: true, text, rawData: data };
+  } catch (err) {
+    return formatError('cmdFailedTransactions', err);
+  }
+}
+
+// ─── 9. Wallet Activity ─────────────────────────────────────
+
+export async function cmdWalletActivity(address: string): Promise<CommandResult> {
+  if (!isValidXdcAddress(address)) {
+    return {
+      success: false,
+      text: '❌ Invalid address. Must start with `xdc`, `txdc`, or `0x` (42 chars).',
+    };
+  }
+
+  try {
+    const network = detectNetwork(address);
+    const data = await getWalletActivity(address, network);
+    const explorerUrl = `${getExplorerBaseUrl(network)}/address/${address}`;
+
+    return {
+      success: true,
+      text:
+        `📊 *Wallet Activity*\n\n` +
+        `Network: ${network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
+        `Address: \`${data.address}\`\n` +
+        `Total Transactions: **${data.totalTransactions}**\n` +
+        `First Seen: ${data.firstSeen ? new Date(data.firstSeen).toLocaleDateString() : 'N/A'}\n` +
+        `Last Seen: ${data.lastSeen ? new Date(data.lastSeen).toLocaleDateString() : 'N/A'}\n` +
+        `Contracts Interacted: **${data.uniqueContractsInteracted}**\n\n` +
+        `[View on Explorer](${explorerUrl})`,
+      rawData: data,
+    };
+  } catch (err) {
+    return formatError('cmdWalletActivity', err);
+  }
+}
+
+// ─── 10. Large Transfers ────────────────────────────────────
+
+export async function cmdLargeTransfers(address: string, thresholdXDC: number = 1000): Promise<CommandResult> {
+  if (!isValidXdcAddress(address)) {
+    return {
+      success: false,
+      text: '❌ Invalid address. Must start with `xdc`, `txdc`, or `0x` (42 chars).',
+    };
+  }
+
+  try {
+    const network = detectNetwork(address);
+    const data = await getLargeTransfers(address, network, thresholdXDC);
+    const explorerUrl = `${getExplorerBaseUrl(network)}/address/${address}`;
+    const count = data.transfers.length;
+
+    let text =
+      `🐋 *Large Transfers*\n\n` +
+      `Network: ${network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
+      `Address: \`${data.address}\`\n` +
+      `Threshold: **${data.threshold} XDC**\n` +
+      `Found: **${count}** transfer${count !== 1 ? 's' : ''}\n\n`;
+
+    if (count > 0) {
+      data.transfers.slice(0, 5).forEach((tx, i) => {
+        text += `${i + 1}. \`${tx.hash.slice(0, 20)}...\` → **${tx.valueXDC} XDC**\n`;
+      });
+      if (count > 5) text += `\n...and ${count - 5} more`;
+      text += `\n\n[View on Explorer](${explorerUrl})`;
+    } else {
+      text += `No large transfers found above the threshold.`;
+    }
+
+    return { success: true, text, rawData: data };
+  } catch (err) {
+    return formatError('cmdLargeTransfers', err);
+  }
+}
+
+// ─── 11. Price (Stub) ───────────────────────────────────────
+
+export function cmdPrice(): CommandResult {
+  return {
+    success: true,
+    text:
+      '📈 *XDC Price*\n\n' +
+      'Current price data is not yet available.\n\n' +
+      'Try these instead:\n' +
+      '• `/balance <address>`\n' +
+      '• `/tx <address>`',
+  };
+}
+
+// ─── 12. Status ─────────────────────────────────────────────
+
+export async function cmdStatus(): Promise<CommandResult> {
+  try {
+    const data = await getGasPrice('mainnet');
+    return {
+      success: true,
+      text:
+        `🌐 *Network Status*\n\n` +
+        `Network: XDC Mainnet\n` +
+        `Gas Safe: **${data.safeGasPrice} Gwei**\n` +
+        `Gas Standard: **${data.proposeGasPrice} Gwei**\n` +
+        `Gas Fast: **${data.fastGasPrice} Gwei**\n\n` +
+        `All systems operational ✅`,
+    };
+  } catch (err) {
+    return formatError('cmdStatus', err);
+  }
+}
+
+// ─── 13. Help ───────────────────────────────────────────────
+
+export function cmdHelp(): CommandResult {
+  return {
+    success: true,
+    text:
+      `🤖 *Smart AI Explorer* — Text the blockchain!\n\n` +
+
+      `*Wallet Commands:*\n` +
+      `• \`/balance xdc...\` — Check XDC balance\n` +
+      `• \`/balance txdc...\` — Check testnet balance\n` +
+      `• \`/tx xdc...\` — Show last 5 transactions\n` +
+      `• \`/activity xdc...\` — Wallet activity stats\n` +
+      `• \`/failed xdc...\` — Failed transactions\n` +
+      `• \`/large xdc...\` — Large transfers (\u003e1000 XDC)\n\n` +
+
+      `*Tracking Commands:*\n` +
+      `• \`/track xdc...\` — Track wallet for alerts\n` +
+      `• \`/untrack xdc...\` — Stop tracking\n` +
+      `• \`/list\` — Show tracked wallets\n\n` +
+
+      `*Network Commands:*\n` +
+      `• \`/gas\` — Current gas prices\n` +
+      `• \`/block 12345\` — Block info\n` +
+      `• \`/status\` — Network status\n` +
+      `• \`/price\` — XDC price (coming soon)\n\n` +
+
+      `*Keyword Shortcuts (no slash):*\n` +
+      `• \`b xdc...\` — Same as /balance\n` +
+      `• \`t xdc...\` — Same as /tx\n` +
+      `• \`gas\` — Same as /gas\n` +
+      `• \`status\` — Same as /status\n` +
+      `• \`help\` — Show this message\n\n` +
+
+      `*Natural Language (beta):*\n` +
+      `• "Balance of xdc..."\n` +
+      `• "Show transactions for xdc..."\n` +
+      `• "Gas price"\n` +
+      `• "Block 12345"\n\n` +
+
+      `*Examples:*\n` +
+      `\`/balance xdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020\`\n` +
+      `\`/tx txdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020\``,
+  };
+}
