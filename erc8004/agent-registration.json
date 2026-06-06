@@ -1,0 +1,32 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "Smart AI Explorer",
+  "description": "AI-powered blockchain assistant for the XDC ecosystem. Query blockchain data, track wallets, get prices, and monitor network status via Telegram and WhatsApp.",
+  "image": "https://raw.githubusercontent.com/yourusername/smart-ai-explorer/main/assets/bot-avatar.png",
+  "services": [
+    {
+      "name": "telegram",
+      "endpoint": "https://t.me/AISmartExplorerBot"
+    },
+    {
+      "name": "web",
+      "endpoint": "https://smart-ai-explorer.vercel.app"
+    },
+    {
+      "name": "A2A",
+      "endpoint": "https://smart-ai-explorer.vercel.app/.well-known/agent-card.json",
+      "version": "0.3.0"
+    },
+    {
+      "name": "MCP",
+      "endpoint": "https://smart-ai-explorer.vercel.app/mcp",
+      "version": "2025-06-18"
+    }
+  ],
+  "active": true,
+  "registrations": [],
+  "supportedTrust": [
+    "reputation",
+    "crypto-economic"
+  ]
+}
