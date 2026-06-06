@@ -11,6 +11,8 @@ import { errorHandler } from './middleware/errorHandler';
 import { env } from './config/env';
 import { logger } from './utils/logger';
 
+import { setBotInstance } from './services/notification/telegramNotify';
+
 async function main(): Promise<void> {
   await connectMongo();
 
@@ -31,6 +33,7 @@ async function main(): Promise<void> {
   });
 
   const bot = createTelegramBot();
+  setBotInstance(bot);
   
   // Launch with error handling to prevent crash on 409 conflicts
   bot.launch().catch((err) => {

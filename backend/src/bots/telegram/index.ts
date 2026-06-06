@@ -15,6 +15,7 @@ import {
   untrackCommand,
   listCommand,
   balanceCommand,
+  txCommand,
   priceCommand,
   statusCommand,
 } from './commands';
@@ -30,6 +31,7 @@ export function createBot(): Telegraf {
   bot.command('untrack', untrackCommand);
   bot.command('list', listCommand);
   bot.command('balance', balanceCommand);
+  bot.command('tx', txCommand);
   bot.command('price', priceCommand);
   bot.command('status', statusCommand);
 

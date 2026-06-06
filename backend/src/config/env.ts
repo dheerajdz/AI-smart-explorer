@@ -6,8 +6,8 @@ const envSchema = z.object({
   REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
   TELEGRAM_BOT_TOKEN: z.string().min(1, 'TELEGRAM_BOT_TOKEN is required'),
   KIMI_API_KEY: z.string().min(1, 'KIMI_API_KEY is required'),
-  BLOCKSCOUT_API: z.string().url().optional(),
   XDCSCAN_API: z.string().url().optional(),
+  XDCSCAN_TESTNET_API: z.string().url().optional(),
   // Twilio (WhatsApp)
   TWILIO_ACCOUNT_SID: z.string().min(1, 'TWILIO_ACCOUNT_SID is required'),
   TWILIO_AUTH_TOKEN: z.string().min(1, 'TWILIO_AUTH_TOKEN is required'),
