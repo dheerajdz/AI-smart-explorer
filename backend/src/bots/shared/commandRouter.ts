@@ -1,0 +1,135 @@
+import { Platform, BotResponse } from './types';
+import { logger } from '../../utils/logger';
+import { connectWallet, disconnectWallet, getConnectedWallet } from '../../services/connectedWalletService';
+import { isValidXdcAddress, detectNetwork } from '../../utils/network';
+import {
+  cmdBalance,
+  cmdTransactions,
+  cmdTrack,
+  cmdUntrack,
+  cmdList,
+  cmdGasPrice,
+  cmdBlockInfo,
+  cmdFailedTransactions,
+  cmdWalletActivity,
+  cmdLargeTransfers,
+  cmdPrice,
+  cmdStatus,
+  cmdHelp,
+} from '../../services/blockchainCommands';
+
+export async function commandRouter(
+  platform: Platform,
+  userId: string,
+  command: string,
+  args: string[]
+): Promise<BotResponse> {
+  const normalized = command.toLowerCase();
+  const address = args[0] || '';
+
+  logger.info('[commandRouter]', { platform, userId, command: normalized, args });
+
+  switch (normalized) {
+    case '/start':
+      return { text: 'Use the greeting flow from dispatcher.', parseMode: 'markdown' };
+
+    case '/help':
+      return { text: cmdHelp().text, parseMode: 'markdown' };
+
+    case '/status':
+      return { text: (await cmdStatus()).text, parseMode: 'markdown' };
+
+    case '/price':
+      return { text: cmdPrice().text, parseMode: 'markdown' };
+
+    case '/gas':
+      return { text: (await cmdGasPrice()).text, parseMode: 'markdown' };
+
+    case '/block':
+      if (!address) return { text: 'Usage: /block <number>' };
+      return { text: (await cmdBlockInfo(address)).text, parseMode: 'markdown' };
+
+    case '/balance': {
+      const addr = address || (await getConnectedAddress(platform, userId));
+      if (!addr) return { text: 'Usage: /balance <address>\n\nOr connect a wallet first.' };
+      return { text: (await cmdBalance(addr)).text, parseMode: 'markdown' };
+    }
+
+    case '/tx':
+    case '/transactions': {
+      const addr = address || (await getConnectedAddress(platform, userId));
+      if (!addr) return { text: 'Usage: /tx <address>\n\nOr connect a wallet first.' };
+      return { text: (await cmdTransactions(addr, 5)).text, parseMode: 'markdown' };
+    }
+
+    case '/activity': {
+      const addr = address || (await getConnectedAddress(platform, userId));
+      if (!addr) return { text: 'Usage: /activity <address>\n\nOr connect a wallet first.' };
+      return { text: (await cmdWalletActivity(addr)).text, parseMode: 'markdown' };
+    }
+
+    case '/failed': {
+      const addr = address || (await getConnectedAddress(platform, userId));
+      if (!addr) return { text: 'Usage: /failed <address>\n\nOr connect a wallet first.' };
+      return { text: (await cmdFailedTransactions(addr, 5)).text, parseMode: 'markdown' };
+    }
+
+    case '/large': {
+      const addr = address || (await getConnectedAddress(platform, userId));
+      if (!addr) return { text: 'Usage: /large <address>\n\nOr connect a wallet first.' };
+      return { text: (await cmdLargeTransfers(addr, 1000)).text, parseMode: 'markdown' };
+    }
+
+    case '/track': {
+      const addr = address || (await getConnectedAddress(platform, userId));
+      if (!addr) return { text: 'Usage: /track <address>\n\nOr connect a wallet first.' };
+      return { text: cmdTrack(addr, userId).text, parseMode: 'markdown' };
+    }
+
+    case '/untrack':
+      if (!address) return { text: 'Usage: /untrack <address>' };
+      return { text: cmdUntrack(address, userId).text, parseMode: 'markdown' };
+
+    case '/list':
+      return { text: cmdList(userId).text, parseMode: 'markdown' };
+
+    case '/disconnect':
+      const result = await disconnectWallet(userId, platform);
+      return {
+        text: result.success
+          ? '✅ *Wallet Disconnected*\n\nYour wallet has been removed. Send /start to connect a new one.'
+          : '⚠️ No wallet found to disconnect.',
+        parseMode: 'markdown',
+      };
+
+    default:
+      return { text: 'Unknown command. Type /help for available commands.' };
+  }
+}
+
+async function getConnectedAddress(platform: Platform, userId: string): Promise<string> {
+  const wallet = await getConnectedWallet(userId, platform);
+  if (!wallet) return '';
+  const prefix = wallet.network === 'testnet' ? 'txdc' : 'xdc';
+  return wallet.address.startsWith('0x') ? `${prefix}${wallet.address.slice(2)}` : wallet.address;
+}
+
+export async function handleAddressOnly(
+  platform: Platform,
+  userId: string,
+  address: string
+): Promise<BotResponse> {
+  if (!isValidXdcAddress(address)) {
+    return { text: '❌ Invalid XDC address. Please check and try again.' };
+  }
+
+  const connectResult = await connectWallet(userId, platform, address);
+  const balanceResult = await cmdBalance(address);
+
+  return {
+    text:
+      `${connectResult.message}\n\n${balanceResult.text}\n\n---\n\n` +
+      `💡 *Tip:* Try:\n• "transactions"\n• "activity"\n• "track this wallet"`,
+    parseMode: 'markdown',
+  };
+}

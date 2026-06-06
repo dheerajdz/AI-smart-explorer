@@ -4,7 +4,7 @@ import { logger } from '../utils/logger';
 export interface IConnectedWallet {
   _id?: string;
   userId: string;
-  platform: 'telegram' | 'whatsapp';
+  platform: 'telegram' | 'whatsapp' | 'slack' | 'x';
   address: string;
   network: 'mainnet' | 'testnet';
   label?: string;
@@ -24,7 +24,7 @@ export class ConnectedWalletModel {
     return this.getCollection().findOne(filter as any);
   }
 
-  static async findByUserId(userId: string, platform: 'telegram' | 'whatsapp'): Promise<IConnectedWallet | null> {
+  static async findByUserId(userId: string, platform: 'telegram' | 'whatsapp' | 'slack' | 'x'): Promise<IConnectedWallet | null> {
     return this.getCollection().findOne({ userId, platform, isConnected: true });
   }
 

@@ -1,9 +1,12 @@
-export interface CommandContext {
-  userId: string;        // telegramId or phoneNumber
-  platform: 'telegram' | 'whatsapp';
+export type Platform = 'telegram' | 'whatsapp' | 'slack' | 'x';
+
+export interface BotContext {
+  platform: Platform;
+  userId: string;
+  text: string;
 }
 
-export interface CommandResult {
+export interface BotResponse {
   text: string;
-  // Future: add buttons, images, etc.
+  parseMode?: 'markdown' | 'html' | 'plain';
 }
