@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import routes from './routes';
-import { createTelegramBot, createWhatsAppBot } from './bots';
+import { createTelegramBot } from './bots';
 import { connectMongo, redis } from './database';
 import { startCronJobs } from './cron/jobs';
 import { requestLogger } from './middleware/requestLogger';
@@ -17,6 +17,10 @@ async function main(): Promise<void> {
   const app = express();
   app.use(helmet());
   app.use(cors());
+
+  // Twilio webhook requires raw body for signature verification (future use)
+  // For now, URL-encoded body is enough for Sandbox
+  app.use(express.urlencoded({ extended: false }));
   app.use(express.json());
   app.use(requestLogger);
   app.use(routes);
@@ -27,11 +31,15 @@ async function main(): Promise<void> {
   });
 
   const bot = createTelegramBot();
-  bot.launch();
+  
+  // Launch with error handling to prevent crash on 409 conflicts
+  bot.launch().catch((err) => {
+    logger.error('Telegram bot launch failed', { error: (err as Error).message });
+    logger.info('💡 Tip: Another bot instance may be running. Kill all node processes if needed.');
+  });
   logger.info('🤖 Telegram bot launched');
 
-  createWhatsAppBot();
-  logger.info('📱 WhatsApp bot placeholder initialized');
+  logger.info('📱 WhatsApp webhook ready at POST /webhook/whatsapp');
 
   startCronJobs();
 

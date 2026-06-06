@@ -8,7 +8,11 @@ const envSchema = z.object({
   KIMI_API_KEY: z.string().min(1, 'KIMI_API_KEY is required'),
   BLOCKSCOUT_API: z.string().url().optional(),
   XDCSCAN_API: z.string().url().optional(),
-  // Email / SMTP Configuration
+  // Twilio (WhatsApp)
+  TWILIO_ACCOUNT_SID: z.string().min(1, 'TWILIO_ACCOUNT_SID is required'),
+  TWILIO_AUTH_TOKEN: z.string().min(1, 'TWILIO_AUTH_TOKEN is required'),
+  TWILIO_WHATSAPP_NUMBER: z.string().min(1, 'TWILIO_WHATSAPP_NUMBER is required'),
+  // Email / SMTP (for OTP)
   SMTP_HOST: z.string().min(1, 'SMTP_HOST is required'),
   SMTP_PORT: z.string().default('587').transform((v) => parseInt(v, 10)),
   SMTP_USER: z.string().min(1, 'SMTP_USER is required'),

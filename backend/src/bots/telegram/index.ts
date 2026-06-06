@@ -18,6 +18,7 @@ import {
   priceCommand,
   statusCommand,
 } from './commands';
+import { messageRouter } from '../../services/messageRouter';
 
 export function createBot(): Telegraf {
   const bot = new Telegraf(env.TELEGRAM_BOT_TOKEN);
@@ -64,6 +65,10 @@ export function createBot(): Telegraf {
 
   /* -------------------- Text messages -------------------- */
   bot.on('text', handleTextMessage);
+
+  bot.catch((err) => {
+    logger.error('Telegram bot error', { error: (err as Error).message });
+  });
 
   return bot;
 }
