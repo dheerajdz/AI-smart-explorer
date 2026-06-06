@@ -6,5 +6,7 @@ export {
   HELP_GENERATOR_PROMPT,
 } from './promptTemplates';
 export { parseQuery } from './queryParser';
+export { executeQuery } from './queryRouter';
+export type { QueryResult } from './queryRouter';
 export type { ParsedQuery } from '../../types';
 export { QueryAction } from '../../types';
