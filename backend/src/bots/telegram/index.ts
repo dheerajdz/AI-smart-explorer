@@ -20,6 +20,19 @@ import {
   statusCommand,
   helpCommand,
 } from './commands';
+import {
+  showMainMenu,
+  handleNetworkSelection,
+  handleMenuBalance,
+  handleMenuTransactions,
+  handleMenuTrack,
+  handleMenuAskAI,
+  handleMenuSettings,
+  handleSettingsDisconnect,
+  handleDisconnectConfirm,
+  handleMenuBack,
+  handleSettingsNotifications,
+} from './walletConnect';
 import { messageRouter } from '../../services/messageRouter';
 
 export function createBot(): Telegraf {
@@ -37,13 +50,30 @@ export function createBot(): Telegraf {
   bot.command('status', statusCommand);
   bot.command('help', helpCommand);
 
-  /* -------------------- Callbacks -------------------- */
+  /* -------------------- Auth Callbacks -------------------- */
   bot.action('action_signup', handleSignupAction);
   bot.action('action_signin', handleSigninAction);
   bot.action('action_resend_signup', handleResendSignupOTP);
   bot.action('action_resend_signin', handleResendSigninOTP);
   bot.action('action_cancel', handleCancel);
   bot.action('action_logout', handleLogoutAction);
+
+  /* -------------------- Wallet Connect Flow -------------------- */
+  bot.action('connect_network_mainnet', handleNetworkSelection);
+  bot.action('connect_network_testnet', handleNetworkSelection);
+
+  /* -------------------- Main Menu -------------------- */
+  bot.action('menu_balance', handleMenuBalance);
+  bot.action('menu_transactions', handleMenuTransactions);
+  bot.action('menu_track', handleMenuTrack);
+  bot.action('menu_ask_ai', handleMenuAskAI);
+  bot.action('menu_settings', handleMenuSettings);
+  bot.action('menu_back', handleMenuBack);
+
+  /* -------------------- Settings -------------------- */
+  bot.action('settings_notifications', handleSettingsNotifications);
+  bot.action('settings_disconnect', handleSettingsDisconnect);
+  bot.action('disconnect_confirm', handleDisconnectConfirm);
 
   /* -------------------- Dashboard callbacks (placeholders) -------------------- */
   bot.action('dashboard_wallet', async (ctx: Context) => {

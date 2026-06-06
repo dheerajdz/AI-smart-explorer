@@ -45,43 +45,19 @@ export async function startCommand(ctx: Context): Promise<void> {
   // Clear any stale conversation state
   await ConversationStateService.clearState(telegramId);
 
-  // Check if user already exists
+  // Check if user already exists in auth system
   const existingUser = await AuthService.findByTelegramId(telegramId);
 
   if (existingUser) {
-    const dashboard = UserService.buildDashboardPayload(existingUser);
-    await ctx.reply(
-      `👋 Welcome back, *${existingUser.telegramUsername || 'User'}*!\n\n` +
-        `Email: \`${existingUser.email}\`\n` +
-        `Wallet: \`${existingUser.walletAddress}\`\n` +
-        `Plan: ${existingUser.plan}\n\n` +
-        `*Dashboard:*`,
-      {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('💼 Wallet', 'dashboard_wallet')],
-          [Markup.button.callback('📊 Transactions', 'dashboard_transactions')],
-          [Markup.button.callback('🔍 Analyze Wallet', 'dashboard_analyze')],
-          [Markup.button.callback('🔔 Track Wallet', 'dashboard_track')],
-          [Markup.button.callback('👤 Profile', 'dashboard_profile')],
-        ]),
-      }
-    );
+    // User has auth account — show main menu
+    const { showMainMenu } = await import('./walletConnect');
+    await showMainMenu(ctx);
     return;
   }
 
-  // New user — show Sign Up / Sign In options
-  await ctx.reply(
-    '👋 Welcome to *Smart AI Explorer* — The Blockchain You Can Text!\n\n' +
-      'Please choose an option to continue:',
-    {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('📝 Sign Up', 'action_signup')],
-        [Markup.button.callback('🔐 Sign In', 'action_signin')],
-      ]),
-    }
-  );
+  // Check if user has connected wallet (new flow)
+  const { startWalletFlow } = await import('./walletConnect');
+  await startWalletFlow(ctx);
 }
 
 /* ------------------------------------------------------------------ */
@@ -336,6 +312,12 @@ export async function handleTextMessage(ctx: Context): Promise<void> {
       await processSigninOTP(ctx, telegramId, input);
       return;
 
+    case 'enter_wallet_address':
+      // Wallet connect flow
+      const { handleWalletAddressInput } = await import('./walletConnect');
+      await handleWalletAddressInput(ctx);
+      return;
+
     default:
       await ctx.reply('Please use /start to begin.');
   }
@@ -579,7 +561,19 @@ export async function trackCommand(ctx: Context): Promise<void> {
   const telegramId = ctx.from?.id;
   const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
   const parts = text.split(/\s+/);
-  const address = parts[1] || '';
+  let address = parts[1] || '';
+
+  if (!address) {
+    // Try connected wallet
+    const { getConnectedWallet } = await import('../../services/connectedWalletService');
+    const wallet = await getConnectedWallet(String(telegramId), 'telegram');
+    if (wallet) {
+      const prefix = wallet.network === 'testnet' ? 'txdc' : 'xdc';
+      address = wallet.address.startsWith('0x')
+        ? `${prefix}${wallet.address.slice(2)}`
+        : wallet.address;
+    }
+  }
 
   if (!address) {
     await ctx.reply(
@@ -587,7 +581,8 @@ export async function trackCommand(ctx: Context): Promise<void> {
         'Usage: `/track <address>`\n\n' +
         'Examples:\n' +
         '• `/track xdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020`\n' +
-        '• `/track txdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020`',
+        '• `/track txdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020`\n\n' +
+        '⚠️ Or connect a wallet with /start',
       { parse_mode: 'Markdown' }
     );
     return;
@@ -619,9 +614,22 @@ export async function listCommand(ctx: Context): Promise<void> {
 }
 
 export async function balanceCommand(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
   const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
   const parts = text.split(/\s+/);
-  const address = parts[1] || '';
+  let address = parts[1] || '';
+
+  if (!address) {
+    // Try connected wallet
+    const { getConnectedWallet } = await import('../../services/connectedWalletService');
+    const wallet = await getConnectedWallet(String(telegramId), 'telegram');
+    if (wallet) {
+      const prefix = wallet.network === 'testnet' ? 'txdc' : 'xdc';
+      address = wallet.address.startsWith('0x')
+        ? `${prefix}${wallet.address.slice(2)}`
+        : wallet.address;
+    }
+  }
 
   if (!address) {
     await ctx.reply(
@@ -629,7 +637,8 @@ export async function balanceCommand(ctx: Context): Promise<void> {
         'Usage: `/balance <address>`\n\n' +
         'Examples:\n' +
         '• `/balance xdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020`\n' +
-        '• `/balance txdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020`',
+        '• `/balance txdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020`\n\n' +
+        '⚠️ Or connect a wallet with /start',
       { parse_mode: 'Markdown' }
     );
     return;
@@ -640,9 +649,22 @@ export async function balanceCommand(ctx: Context): Promise<void> {
 }
 
 export async function txCommand(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
   const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
   const parts = text.split(/\s+/);
-  const address = parts[1] || '';
+  let address = parts[1] || '';
+
+  if (!address) {
+    // Try connected wallet
+    const { getConnectedWallet } = await import('../../services/connectedWalletService');
+    const wallet = await getConnectedWallet(String(telegramId), 'telegram');
+    if (wallet) {
+      const prefix = wallet.network === 'testnet' ? 'txdc' : 'xdc';
+      address = wallet.address.startsWith('0x')
+        ? `${prefix}${wallet.address.slice(2)}`
+        : wallet.address;
+    }
+  }
 
   if (!address) {
     await ctx.reply(
@@ -650,7 +672,8 @@ export async function txCommand(ctx: Context): Promise<void> {
         'Usage: `/tx <address>`\n\n' +
         'Examples:\n' +
         '• `/tx xdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020`\n' +
-        '• `/tx txdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020`',
+        '• `/tx txdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020`\n\n' +
+        '⚠️ Or connect a wallet with /start',
       { parse_mode: 'Markdown' }
     );
     return;
