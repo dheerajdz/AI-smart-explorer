@@ -1,5 +1,5 @@
 import express from "express";
-import { parseUserQuery } from "../services/kimiService";
+import { parseQuery } from "../services/ai";
 
 const router = express.Router();
 
@@ -7,10 +7,8 @@ router.post("/chat", async (req, res) => {
   try {
     const { message } = req.body;
 
-    // CALL THE SERVICE HERE
-    const result = await parseUserQuery(message);
-
-    const parsed = JSON.parse(result || "{}");
+    // Call the AI query parser
+    const parsed = await parseQuery(message);
 
     res.json(parsed);
   } catch (error) {
