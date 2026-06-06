@@ -138,9 +138,9 @@ export async function handleMenuBalance(ctx: Context): Promise<void> {
     : wallet.address;
 
   // Import balance command dynamically to avoid circular deps
-  const { balanceCommand } = await import('./commands');
-  (ctx as any).message = { text: `/balance ${address}` };
-  await balanceCommand(ctx);
+  const { cmdBalance } = await import('../../services/blockchainCommands');
+  const result = await cmdBalance(address);
+  await ctx.reply(result.text, { parse_mode: 'Markdown' });
   await ctx.answerCbQuery();
 }
 
@@ -160,9 +160,9 @@ export async function handleMenuTransactions(ctx: Context): Promise<void> {
     ? `${prefix}${wallet.address.slice(2)}`
     : wallet.address;
 
-  const { txCommand } = await import('./commands');
-  (ctx as any).message = { text: `/tx ${address}` };
-  await txCommand(ctx);
+  const { cmdTransactions } = await import('../../services/blockchainCommands');
+  const result = await cmdTransactions(address, 5);
+  await ctx.reply(result.text, { parse_mode: 'Markdown' });
   await ctx.answerCbQuery();
 }
 
@@ -182,9 +182,9 @@ export async function handleMenuTrack(ctx: Context): Promise<void> {
     ? `${prefix}${wallet.address.slice(2)}`
     : wallet.address;
 
-  const { trackCommand } = await import('./commands');
-  (ctx as any).message = { text: `/track ${address}` };
-  await trackCommand(ctx);
+  const { cmdTrack } = await import('../../services/blockchainCommands');
+  const result = cmdTrack(address, String(telegramId));
+  await ctx.reply(result.text, { parse_mode: 'Markdown' });
   await ctx.answerCbQuery();
 }
 

@@ -187,6 +187,18 @@ export async function keywordRouter(
     return { text: result.text };
   }
 
+  // ─── 14. Disconnect wallet ──────────────────────────────────
+  if (lower.includes('disconnect') || lower.includes('remove wallet') || lower.includes('logout wallet')) {
+    const { disconnectWallet } = await import('./connectedWalletService');
+    const result = await disconnectWallet(userId, 'telegram');
+    return {
+      text:
+        result.success
+          ? '✅ *Wallet Disconnected*\n\nYour wallet has been removed. Use /start to connect a new one.'
+          : '⚠️ No wallet found to disconnect.',
+    };
+  }
+
   // ─── Fallback: address without keyword ──────────────────────
   if (addr) {
     // User just sent an address — show balance by default
