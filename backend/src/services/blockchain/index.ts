@@ -1,2 +1,10 @@
-export { getBlockscoutBalance, getBlockscoutTxList } from './blockscoutService';
-export { getXdcscanBalance, getXdcscanTxList } from './xdcscanService';
+export {
+  getWalletBalance,
+  getTransactions,
+  getWalletActivity,
+  getLargeTransfers,
+} from './xdcscanService';
+export {
+  getBlockscoutBalance,
+  getBlockscoutTxList,
+} from './blockscoutService';

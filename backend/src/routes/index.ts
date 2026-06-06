@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import healthRouter from './health';
-import authRouter from './auth';
-import whatsappRouter from '../bots/whatsapp';
+import healthRoutes from './health';
+import authRoutes from './auth';
+import chatRoutes from './chatRoutes';
 
 const router = Router();
 
-router.use('/health', healthRouter);
-router.use('/auth', authRouter);
-router.use(whatsappRouter);
+router.use('/health', healthRoutes);
+router.use('/auth', authRoutes);
+router.use('/chat', chatRoutes);
 
 export default router;

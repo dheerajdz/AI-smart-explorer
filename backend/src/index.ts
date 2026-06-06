@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import routes from './routes';
-import { createTelegramBot } from './bots';
+import { createTelegramBot, createWhatsAppBot } from './bots';
 import { connectMongo, redis } from './database';
 import { startCronJobs } from './cron/jobs';
 import { requestLogger } from './middleware/requestLogger';
@@ -39,6 +39,8 @@ async function main(): Promise<void> {
   });
   logger.info('🤖 Telegram bot launched');
 
+  // WhatsApp bot
+  createWhatsAppBot();
   logger.info('📱 WhatsApp webhook ready at POST /webhook/whatsapp');
 
   startCronJobs();
