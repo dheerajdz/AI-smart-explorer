@@ -1,9 +1,8 @@
-import { logger } from '../../utils/logger';
+import { Router } from 'express';
+import { whatsappWebhook } from './webhook';
 
-// Placeholder for WhatsApp bot integration
-// Consider using whatsapp-web.js, @whiskeysockets/baileys, or Meta Business API
+const router = Router();
 
-export function createWhatsAppBot(): void {
-  logger.info('📱 WhatsApp bot placeholder initialized');
-  // TODO: Implement WhatsApp bot logic
-}
+router.post('/webhook/whatsapp', whatsappWebhook);
+
+export default router;
