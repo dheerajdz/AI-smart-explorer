@@ -461,7 +461,7 @@ async function processSignupWallet(ctx: Context, telegramId: number, walletAddre
       telegramUsername: state.telegramUsername || undefined,
       email: state.email.toLowerCase(),
       walletAddress: walletAddress.trim().toLowerCase(),
-      plan: 'free',
+      plan: 'FREE',
       isEmailVerified: true,
       preferredLanguage: 'en',
     });

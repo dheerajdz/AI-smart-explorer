@@ -1,5 +1,6 @@
 import { logger } from '../utils/logger';
 import { keywordRouter } from './keywordRouter';
+import { commandHandler } from './commandHandler';
 import { parseQuery, executeQuery, QueryResult } from './ai';
 
 export interface RouterResponse {
@@ -10,12 +11,8 @@ export interface RouterResponse {
 /**
  * Route incoming messages to the appropriate handler.
  *
- * NOTE: Slash commands are handled directly by each bot
- * (Telegram via bot.command(), WhatsApp via messageHandler).
- * This function only handles natural language messages.
- *
- * Strategy: Try AI parsing first (natural language), fall back to
- * keyword router if AI fails or is unavailable.
+ * Strategy: Slash commands go to commandHandler (supports /plans, /myplan, /admin),
+ * then try AI parsing (natural language), falling back to keyword router.
  *
  * Language Flow:
  *   1. Detect language from message
@@ -26,15 +23,20 @@ export interface RouterResponse {
 export async function messageRouter(
   message: string,
   userId: string,
-  userPreferredLanguage?: string
+  userPreferredLanguage?: string,
+  telegramId?: number
 ): Promise<RouterResponse> {
   const trimmedMessage = message.trim();
 
-  logger.info('Routing message', { userId, message: trimmedMessage, userPreferredLanguage });
+  logger.info('Routing message', { userId, message: trimmedMessage, userPreferredLanguage, telegramId });
 
   // ─── Slash commands ─────────────────────────────────────────
   if (trimmedMessage.startsWith('/')) {
-    return keywordRouter(trimmedMessage, userId);
+    const parts = trimmedMessage.split(/\s+/);
+    const command = parts[0];
+    const args = parts.slice(1);
+
+    return commandHandler(command, args, userId, telegramId);
   }
 
   // ─── AI routing (primary) ───────────────────────────────────

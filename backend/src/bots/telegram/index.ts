@@ -1,6 +1,7 @@
 import { Telegraf, Context } from 'telegraf';
 import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
+import * as planService from '../../services/planService';
 import {
   startCommand,
   handleSignupAction,
@@ -25,13 +26,50 @@ import {
   handleSettingsNotifications,
 } from './walletConnect';
 import { handleTelegramMessage } from './adapter';
+import { commandHandler } from '../../services/commandHandler';
 
 export function createBot(): Telegraf {
   const bot = new Telegraf(env.TELEGRAM_BOT_TOKEN);
 
   /* -------------------- Commands -------------------- */
-  bot.command('start', startCommand);
+  bot.command('start', async (ctx) => {
+    // Ensure user has a plan row
+    const telegramId = ctx.from?.id;
+    if (telegramId) {
+      await planService.findOrCreateUser(telegramId, {
+        username: ctx.from?.username,
+        firstName: ctx.from?.first_name,
+        lastName: ctx.from?.last_name,
+      });
+    }
+    // Delegate to existing start flow
+    await startCommand(ctx);
+  });
+
   bot.command('logout', logoutCommand);
+
+  /* -------------------- Plan Commands -------------------- */
+  bot.command('plans', async (ctx) => {
+    const telegramId = ctx.from?.id;
+    const userId = telegramId?.toString() ?? '';
+    const response = await commandHandler('/plans', [], userId, telegramId);
+    await ctx.reply(response.text, { parse_mode: 'Markdown' });
+  });
+
+  bot.command('myplan', async (ctx) => {
+    const telegramId = ctx.from?.id;
+    const userId = telegramId?.toString() ?? '';
+    const response = await commandHandler('/myplan', [], userId, telegramId);
+    await ctx.reply(response.text, { parse_mode: 'Markdown' });
+  });
+
+  bot.command('admin', async (ctx) => {
+    const telegramId = ctx.from?.id;
+    const userId = telegramId?.toString() ?? '';
+    const args = ctx.message?.text?.split(/\s+/)?.slice(1) ?? [];
+    const response = await commandHandler('/admin', args, userId, telegramId);
+    await ctx.reply(response.text, { parse_mode: 'Markdown' });
+  });
 
   /* -------------------- Auth Callbacks -------------------- */
   bot.action('action_signup', handleSignupAction);

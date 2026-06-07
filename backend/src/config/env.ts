@@ -43,6 +43,9 @@ const envSchema = z.object({
   // ── Webhooks ────────────────────────────────────────────────
   WEBHOOK_MAX_RETRIES: z.string().default('3').transform((v) => parseInt(v, 10)),
   WEBHOOK_TIMEOUT_MS: z.string().default('10000').transform((v) => parseInt(v, 10)),
+
+  // ── Plans / Admin ───────────────────────────────────────────
+  ADMIN_TELEGRAM_ID: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

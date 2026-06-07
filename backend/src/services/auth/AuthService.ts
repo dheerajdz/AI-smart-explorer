@@ -123,7 +123,7 @@ export class AuthService {
         telegramUsername: telegramUsername || undefined,
         email: email.trim().toLowerCase(),
         walletAddress: walletAddress.trim().toLowerCase(),
-        plan: 'free',
+        plan: 'FREE',
         isEmailVerified: true,
         preferredLanguage: 'en',
       });
@@ -146,6 +146,10 @@ export class AuthService {
 
       if (!user) {
         return { success: false, error: 'User not found. Please sign up first.' };
+      }
+
+      if (!user.email) {
+        return { success: false, error: 'No email associated with this account.' };
       }
 
       // Store OTP session

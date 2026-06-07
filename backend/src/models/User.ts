@@ -1,15 +1,20 @@
 import { getDb } from '../database/mongodb';
 import { logger } from '../utils/logger';
 import { SupportedLanguage } from '../services/i18n';
+import { PlanTier } from '../types';
 
 export interface IUser {
   _id?: string;
   telegramId: number;
   telegramUsername?: string;
-  email: string;
-  walletAddress: string;
-  plan: 'free' | 'premium';
-  isEmailVerified: boolean;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  walletAddress?: string;
+  plan: PlanTier;
+  planAssignedAt: Date;
+  isEmailVerified?: boolean;
   preferredLanguage: SupportedLanguage;
   createdAt: Date;
   updatedAt: Date;
@@ -38,13 +43,18 @@ export class UserModel {
     return this.getCollection().findOne({ walletAddress: walletAddress.toLowerCase() });
   }
 
-  static async create(userData: Omit<IUser, '_id' | 'createdAt' | 'updatedAt'>): Promise<IUser> {
+  static async create(
+    userData: Omit<IUser, '_id' | 'createdAt' | 'updatedAt' | 'planAssignedAt'> &
+      Partial<Pick<IUser, 'planAssignedAt'>>
+  ): Promise<IUser> {
     const now = new Date();
     const user: IUser = {
       ...userData,
-      email: userData.email.toLowerCase(),
-      walletAddress: userData.walletAddress.toLowerCase(),
+      email: userData.email ? userData.email.toLowerCase() : undefined,
+      walletAddress: userData.walletAddress ? userData.walletAddress.toLowerCase() : undefined,
       preferredLanguage: userData.preferredLanguage || 'en',
+      plan: userData.plan || 'FREE',
+      planAssignedAt: userData.planAssignedAt || now,
       createdAt: now,
       updatedAt: now,
     };
@@ -88,8 +98,65 @@ export class UserModel {
   static async createIndexes(): Promise<void> {
     const collection = this.getCollection();
     await collection.createIndex({ telegramId: 1 }, { unique: true });
-    await collection.createIndex({ email: 1 }, { unique: true });
-    await collection.createIndex({ walletAddress: 1 }, { unique: true });
+
+    // ── Handle potential IndexKeySpecsConflict ─────────────────
+    // If a previous deployment created a non-sparse unique index on email
+    // or walletAddress, MongoDB will reject a new createIndex with sparse:true.
+    // We drop any existing index on those keys first, then recreate.
+    const existingIndexes = await collection.indexes();
+
+    const dropIfConflicting = async (fieldName: string) => {
+      const idx = existingIndexes.find(
+        (i) => JSON.stringify(i.key) === JSON.stringify({ [fieldName]: 1 })
+      );
+      if (idx && idx.name) {
+        await collection.dropIndex(idx.name);
+        logger.info(`Dropped conflicting index ${idx.name} on ${fieldName}`);
+      }
+    };
+
+    await dropIfConflicting('email');
+    await dropIfConflicting('walletAddress');
+
+    await collection.createIndex({ email: 1 }, { unique: true, sparse: true });
+    await collection.createIndex({ walletAddress: 1 }, { unique: true, sparse: true });
     logger.info('User indexes created');
+  }
+
+  // ─── Plan helpers (from feat/plans-system) ─────────────────
+
+  static async findOrCreateUser(
+    telegramId: number,
+    profile?: { username?: string; firstName?: string; lastName?: string }
+  ): Promise<{ user: IUser; plan: PlanTier; isNew: boolean }> {
+    let user = await this.findByTelegramId(telegramId);
+
+    if (!user) {
+      user = await this.create({
+        telegramId,
+        username: profile?.username,
+        firstName: profile?.firstName,
+        lastName: profile?.lastName,
+        plan: 'FREE',
+        planAssignedAt: new Date(),
+        preferredLanguage: 'en',
+      });
+      logger.info('New user created with FREE plan', { telegramId });
+      return { user, plan: user.plan, isNew: true };
+    }
+
+    return { user, plan: user.plan, isNew: false };
+  }
+
+  static async getUserPlan(telegramId: number): Promise<PlanTier | null> {
+    const user = await this.findByTelegramId(telegramId);
+    return user?.plan ?? null;
+  }
+
+  static async setUserPlan(targetTelegramId: number, plan: PlanTier): Promise<boolean> {
+    return this.updateOne(
+      { telegramId: targetTelegramId },
+      { plan, planAssignedAt: new Date() }
+    );
   }
 }
