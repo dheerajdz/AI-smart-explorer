@@ -6,3 +6,4 @@ export { TrackedWalletModel, ITrackedWallet } from './TrackedWallet';
 export { ActivityLogModel, IActivityLog } from './ActivityLog';
 export { ConnectedWalletModel, IConnectedWallet } from './ConnectedWallet';
 export { WalletPollStateModel, IWalletPollState } from './WalletPollState';
+export { Webhook, IWebhook, WebhookEventType, VALID_WEBHOOK_EVENTS } from './Webhook';

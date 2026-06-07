@@ -4,5 +4,13 @@ export {
   listWallets,
   getAllUsers,
   getWalletsForUser,
+  getAllTrackedWallets,
+  getUserWallets,
+  addWallet,
+  removeWallet,
+  clearUserWallets,
+  setUserPhone,
+  getUserPhone,
+  removeUserPhone,
   type StoredWallet,
 } from './inMemoryStore';

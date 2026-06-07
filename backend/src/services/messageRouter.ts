@@ -1,5 +1,6 @@
 import { logger } from '../utils/logger';
 import { keywordRouter } from './keywordRouter';
+import { parseQuery, executeQuery, QueryResult } from './ai';
 
 export interface RouterResponse {
   text: string;
@@ -8,12 +9,10 @@ export interface RouterResponse {
 /**
  * Route incoming messages to the appropriate handler.
  *
- * NOTE: Slash commands are handled directly by each bot
- * (Telegram via bot.command(), WhatsApp via messageHandler).
- * This function only handles natural language messages.
- *
- * Strategy: Try AI parsing first (natural language), fall back to
- * keyword router if AI fails or is unavailable.
+ * Flow:
+ *   1. If message starts with "/" → use keyword/command router
+ *   2. Otherwise → AI natural language parsing (primary)
+ *   3. Fall back to keyword router if AI fails
  */
 export async function messageRouter(
   message: string,
@@ -23,9 +22,13 @@ export async function messageRouter(
 
   logger.info('Routing message', { userId, message: trimmedMessage });
 
+  // ─── Slash commands ─────────────────────────────────────────
+  if (trimmedMessage.startsWith('/')) {
+    return keywordRouter(trimmedMessage, userId);
+  }
+
   // ─── AI routing (primary) ───────────────────────────────────
   try {
-    const { parseQuery, executeQuery } = await import('./ai');
     const { detectNetwork } = await import('../utils/network');
 
     const addressMatch = trimmedMessage.match(/\b(xdc[0-9a-fA-F]{40}|txdc[0-9a-fA-F]{40}|0x[0-9a-fA-F]{40})\b/);
@@ -37,7 +40,7 @@ export async function messageRouter(
     if (parsed.action !== 'unknown') {
       parsed.network = parsed.network || detectedNetwork;
 
-      const result = await executeQuery(parsed);
+      const result: QueryResult = await executeQuery(parsed);
       logger.info('[messageRouter] AI routing success', { action: parsed.action });
       return { text: result.text };
     }

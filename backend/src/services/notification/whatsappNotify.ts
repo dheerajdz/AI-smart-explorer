@@ -12,24 +12,23 @@ function getClient(): twilio.Twilio {
 }
 
 export async function sendWhatsAppNotification(phone: string, message: string): Promise<void> {
+  logger.info('Sending WhatsApp notification', { phone, messageLength: message.length });
+
   try {
     const client = getClient();
-    const result = await client.messages.create({
+    const twilioMessage = await client.messages.create({
       from: `whatsapp:${env.TWILIO_WHATSAPP_NUMBER}`,
       to: `whatsapp:${phone}`,
       body: message,
     });
 
-    logger.info('[whatsappNotify] Message sent', {
-      sid: result.sid,
+    logger.info('WhatsApp notification sent', {
+      sid: twilioMessage.sid,
       to: phone,
-      status: result.status,
+      status: twilioMessage.status,
     });
   } catch (err) {
-    logger.error('[whatsappNotify] Failed to send WhatsApp message', {
-      to: phone,
-      error: (err as Error).message,
-    });
+    logger.error('Failed to send WhatsApp notification', { phone, error: (err as Error).message });
     throw err;
   }
 }

@@ -39,6 +39,12 @@ export enum QueryAction {
   LIST_ALERTS = 'list_alerts',
   DELETE_ALERT = 'delete_alert',
 
+  // ── Webhooks ──────────────────────────────────────────────
+  WEBHOOK_CREATE = 'webhook_create',
+  WEBHOOK_LIST = 'webhook_list',
+  WEBHOOK_DELETE = 'webhook_delete',
+  WEBHOOK_TEST = 'webhook_test',
+
   // ── Utility ──────────────────────────────────────────────
   HELP = 'help',
   UNKNOWN = 'unknown',
@@ -91,6 +97,11 @@ export const QUERY_ACTION_DESCRIPTIONS: Record<QueryAction, string> = {
   [QueryAction.CREATE_ALERT]: 'Create a new price or activity alert',
   [QueryAction.LIST_ALERTS]: 'Show your active alerts',
   [QueryAction.DELETE_ALERT]: 'Remove an existing alert',
+
+  [QueryAction.WEBHOOK_CREATE]: 'Register a new webhook URL',
+  [QueryAction.WEBHOOK_LIST]: 'List your registered webhooks',
+  [QueryAction.WEBHOOK_DELETE]: 'Delete a webhook',
+  [QueryAction.WEBHOOK_TEST]: 'Send a test event to a webhook',
 
   [QueryAction.HELP]: 'Show available commands and examples',
   [QueryAction.UNKNOWN]: 'Unrecognized query — try rephrasing',
@@ -172,6 +183,23 @@ export const QUERY_ACTION_EXAMPLES: Record<QueryAction, string[]> = {
   [QueryAction.DELETE_ALERT]: [
     'Delete alert #1',
     'Remove my gas alert',
+  ],
+
+  [QueryAction.WEBHOOK_CREATE]: [
+    'Webhook add https://myapp.com/events',
+    'Register webhook for large transfers',
+  ],
+  [QueryAction.WEBHOOK_LIST]: [
+    'Show my webhooks',
+    'List webhooks',
+  ],
+  [QueryAction.WEBHOOK_DELETE]: [
+    'Delete webhook 667123...',
+    'Remove webhook',
+  ],
+  [QueryAction.WEBHOOK_TEST]: [
+    'Test webhook 667123...',
+    'Send test to my webhook',
   ],
 
   [QueryAction.HELP]: [
