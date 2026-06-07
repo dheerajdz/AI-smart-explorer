@@ -24,6 +24,8 @@ import {
   cmdReputation,
   cmdLeaderboard,
 } from '../../services/blockchainCommands';
+import { getMultiChainBalance, getMultiChainTransactions, getMultiChainGasPrice } from '../../services/multiChain/multiChainService';
+import { getSupportedChains } from '../../config/chains';
 
 export async function commandRouter(
   platform: Platform,
@@ -49,24 +51,96 @@ export async function commandRouter(
     case '/price':
       return { text: cmdPrice().text, parseMode: 'markdown' };
 
-    case '/gas':
+    case '/gas': {
+      const gasChainId = args[0]?.toLowerCase();
+      if (gasChainId && ['xdc', 'txdc', 'eth', 'base', 'polygon', 'bsc'].includes(gasChainId)) {
+        try {
+          const result = await getMultiChainGasPrice(gasChainId);
+          return {
+            text:
+              `⛽ *Gas Price*\n\n` +
+              `Chain: ${getChainConfig(gasChainId)?.name || gasChainId}\n` +
+              `Safe: **${result.safeGasPrice} Gwei**\n` +
+              `Standard: **${result.proposeGasPrice} Gwei**\n` +
+              `Fast: **${result.fastGasPrice} Gwei**`,
+            parseMode: 'markdown',
+          };
+        } catch (err) {
+          return { text: `❌ Failed to fetch gas price for ${gasChainId}.` };
+        }
+      }
       return { text: (await cmdGasPrice()).text, parseMode: 'markdown' };
+    }
 
     case '/block':
       if (!address) return { text: 'Usage: /block <number>' };
       return { text: (await cmdBlockInfo(address)).text, parseMode: 'markdown' };
 
+    case '/chains':
+      const chains = getSupportedChains();
+      const chainList = chains.map(c => `${c.logo} ${c.name} (${c.id}) — ${c.nativeToken}`).join('\n');
+      return {
+        text: `🌐 *Supported Chains*\n\n${chainList}\n\nUse: \`/balance <chain> <address>\`\nExample: \`/balance eth 0x1234...\``,
+        parseMode: 'markdown',
+      };
+
     case '/balance': {
-      const addr = address || (await getConnectedAddress(platform, userId));
-      if (!addr) return { text: 'Usage: /balance <address>\n\nOr connect a wallet first.' };
-      return { text: (await cmdBalance(addr)).text, parseMode: 'markdown' };
+      const chainId = args[0]?.toLowerCase();
+      const addr = args[1] || (await getConnectedAddress(platform, userId));
+      
+      // If first arg is a chain ID
+      if (chainId && ['xdc', 'txdc', 'eth', 'base', 'polygon', 'bsc'].includes(chainId)) {
+        if (!addr) return { text: `Usage: /balance ${chainId} <address>\n\nOr connect a wallet first.` };
+        try {
+          const result = await getMultiChainBalance(addr, chainId);
+          return {
+            text:
+              `${getChainConfig(chainId)?.logo || '💰'} *Wallet Balance*\n\n` +
+              `Chain: ${getChainConfig(chainId)?.name || chainId}\n` +
+              `Address: \`${result.address}\`\n` +
+              `Balance: **${result.balanceFormatted} ${result.symbol}**\n\n` +
+              `[View on Explorer](${result.explorerUrl})`,
+            parseMode: 'markdown',
+          };
+        } catch (err) {
+          return { text: `❌ Failed to fetch balance on ${chainId}. Please try again later.` };
+        }
+      }
+      
+      // Default XDC behavior
+      const xdcAddr = chainId || (await getConnectedAddress(platform, userId));
+      if (!xdcAddr) return { text: 'Usage: /balance <address>\n\nOr connect a wallet first.' };
+      return { text: (await cmdBalance(xdcAddr)).text, parseMode: 'markdown' };
     }
 
     case '/tx':
     case '/transactions': {
-      const addr = address || (await getConnectedAddress(platform, userId));
-      if (!addr) return { text: 'Usage: /tx <address>\n\nOr connect a wallet first.' };
-      return { text: (await cmdTransactions(addr, 5)).text, parseMode: 'markdown' };
+      const txChainId = args[0]?.toLowerCase();
+      const txAddr = args[1] || (await getConnectedAddress(platform, userId));
+      
+      if (txChainId && ['xdc', 'txdc', 'eth', 'base', 'polygon', 'bsc'].includes(txChainId)) {
+        if (!txAddr) return { text: `Usage: /tx ${txChainId} <address>\n\nOr connect a wallet first.` };
+        try {
+          const result = await getMultiChainTransactions(txAddr, txChainId, 1, 5);
+          let text = `${getChainConfig(txChainId)?.logo || '📄'} *Recent Transactions*\n\n` +
+            `Chain: ${getChainConfig(txChainId)?.name || txChainId}\n` +
+            `Address: \`${result.address}\`\n` +
+            `Showing: ${result.transactions.length}\n\n`;
+          
+          result.transactions.forEach((tx, i) => {
+            text += `${i + 1}. \`${tx.hash.slice(0, 20)}...\` — ${parseFloat(tx.value) / 1e18} ${getChainConfig(txChainId)?.nativeToken}\n`;
+          });
+          
+          text += `\n[View on Explorer](${result.explorerUrl})`;
+          return { text, parseMode: 'markdown' };
+        } catch (err) {
+          return { text: `❌ Failed to fetch transactions on ${txChainId}. Please try again later.` };
+        }
+      }
+      
+      const xdcTxAddr = txChainId || (await getConnectedAddress(platform, userId));
+      if (!xdcTxAddr) return { text: 'Usage: /tx <address>\n\nOr connect a wallet first.' };
+      return { text: (await cmdTransactions(xdcTxAddr, 5)).text, parseMode: 'markdown' };
     }
 
     case '/activity': {

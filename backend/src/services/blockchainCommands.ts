@@ -650,10 +650,17 @@ export function cmdHelp(): CommandResult {
       `• \`/list\` — Show tracked wallets\n\n` +
 
       `*Network Commands:*\n` +
-      `• \`/gas\` — Current gas prices\n` +
+      `• \`/gas\` — Current gas prices (XDC)\n` +
+      `• \`/gas eth\` — Gas price on any chain\n` +
       `• \`/block 12345\` — Block info\n` +
       `• \`/status\` — Network status\n` +
       `• \`/price\` — XDC price (coming soon)\n\n` +
+
+      `*Multi-Chain Commands:*\n` +
+      `• \`/chains\` — List supported chains\n` +
+      `• \`/balance eth 0x...\` — Balance on any chain\n` +
+      `• \`/tx base 0x...\` — Transactions on any chain\n` +
+      `• \`/gas polygon\` — Gas price on any chain\n\n` +
 
       `*Billing Commands:*\n` +
       `• \`/subscription\` — Your current plan\n` +
