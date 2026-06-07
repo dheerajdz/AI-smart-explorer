@@ -6,7 +6,9 @@ import {
   getConnectedWallet,
   hasConnectedWallet,
 } from '../../services/connectedWalletService';
+import { getUserTranslation, setUserLanguage } from '../../services/i18nService';
 import { ConversationStateService } from '../../services/conversation';
+import { getSupportedLanguages } from '../../i18n';
 
 /* ------------------------------------------------------------------ */
 /*  Wallet Connect Flow                                               */
@@ -26,9 +28,13 @@ export async function startWalletFlow(ctx: Context): Promise<void> {
 }
 
 async function showWelcomeNew(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+  const t = await getUserTranslation(String(telegramId), 'telegram');
+
   const text =
-    `👋 *Welcome to Smart AI Explorer!*\n\n` +
-    `I am your AI assistant for the *XDC blockchain*.\n\n` +
+    `👋 *${t.welcome_title}*\n\n` +
+    `${t.welcome_description}\n\n` +
     `You can text me things like:\n` +
     `• "Balance of xdc..."\n` +
     `• "Show my transactions"\n` +
@@ -54,17 +60,18 @@ export async function showWelcomeBack(ctx: Context): Promise<void> {
   const address = wallet?.address ?? '';
   const networkLabel = wallet?.network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet';
   const shortAddr = address ? `${address.slice(0, 8)}...${address.slice(-6)}` : 'Unknown';
+  const t = await getUserTranslation(String(telegramId), 'telegram');
 
   const text =
-    `👋 *Welcome back!*\n\n` +
-    `Your connected wallet:\n` +
+    `👋 *${t.welcome_title}*\n\n` +
+    `${t.welcome_connected}:\n` +
     `${networkLabel} \`${shortAddr}\`\n\n` +
     `What would you like to do?`;
 
   const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('💰 Balance', 'menu_balance')],
-    [Markup.button.callback('📜 Transactions', 'menu_transactions')],
-    [Markup.button.callback('🔔 Track Wallet', 'menu_track')],
+    [Markup.button.callback(t.btn_view_balance, 'menu_balance')],
+    [Markup.button.callback(t.btn_view_transactions, 'menu_transactions')],
+    [Markup.button.callback(t.btn_track_wallet, 'menu_track')],
     [Markup.button.callback('🚨 My Alerts', 'menu_alerts')],
     [Markup.button.callback('🤖 Ask AI', 'menu_ask_ai')],
     [Markup.button.callback('⚙️ Settings', 'menu_settings')],
@@ -175,14 +182,18 @@ export async function handleWalletAddressInput(ctx: Context): Promise<void> {
 /* ------------------------------------------------------------------ */
 
 export async function showMainMenu(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+  const t = await getUserTranslation(String(telegramId), 'telegram');
+
   const text =
     `🏠 *Main Menu*\n\n` +
     `What would you like to do?`;
 
   const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('💰 Balance', 'menu_balance')],
-    [Markup.button.callback('📜 Transactions', 'menu_transactions')],
-    [Markup.button.callback('🔔 Track Wallet', 'menu_track')],
+    [Markup.button.callback(t.btn_view_balance, 'menu_balance')],
+    [Markup.button.callback(t.btn_view_transactions, 'menu_transactions')],
+    [Markup.button.callback(t.btn_track_wallet, 'menu_track')],
     [Markup.button.callback('🚨 My Alerts', 'menu_alerts')],
     [Markup.button.callback('🤖 Ask AI', 'menu_ask_ai')],
     [Markup.button.callback('⚙️ Settings', 'menu_settings')],
@@ -284,19 +295,19 @@ export async function handleMenuSettings(ctx: Context): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
 
-  // Get user's current language preference
-  const { UserModel } = await import('../../models/User');
-  const user = await UserModel.findByTelegramId(telegramId);
-  const currentLang = user?.preferredLanguage || 'en';
+  // Get user's current language preference from ConnectedWallet
+  const wallet = await getConnectedWallet(String(telegramId), 'telegram');
+  const currentLang = wallet?.language || 'en';
   const langNames: Record<string, string> = { en: 'English', hi: 'Hindi', mr: 'Marathi' };
+  const t = await getUserTranslation(String(telegramId), 'telegram');
 
-  const text = `⚙️ *Settings*\n\nCurrent language: **${langNames[currentLang]}**\n\nWhat would you like to do?`;
+  const text = `⚙️ *Settings*\n\n${t.prompt_select_language}: **${langNames[currentLang]}**\n\nWhat would you like to do?`;
 
   const keyboard = Markup.inlineKeyboard([
     [Markup.button.callback('🔔 Notification Settings', 'settings_notifications')],
     [Markup.button.callback('🌐 Language', 'settings_language')],
     [Markup.button.callback('❌ Disconnect Wallet', 'settings_disconnect')],
-    [Markup.button.callback('⬅️ Back to Main Menu', 'menu_back')],
+    [Markup.button.callback(t.btn_back, 'menu_back')],
   ]);
 
   await ctx.reply(text, { parse_mode: 'Markdown', ...keyboard });
@@ -384,11 +395,8 @@ export async function handleLanguageSelection(ctx: Context): Promise<void> {
   const lang = callbackData?.replace('language_', '') || 'en';
 
   try {
-    const { UserModel } = await import('../../models/User');
-    await UserModel.updateOne(
-      { telegramId },
-      { preferredLanguage: lang }
-    );
+    // Update ConnectedWallet language
+    await setUserLanguage(String(telegramId), 'telegram', lang);
 
     const messages: Record<string, string> = {
       en: '✅ Language set to English',

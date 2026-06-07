@@ -1,8 +1,10 @@
 import { Platform, BotResponse } from './types';
 import { hasConnectedWallet, getConnectedWallet } from '../../services/connectedWalletService';
+import { getUserTranslation } from '../../services/i18nService';
 
 export async function generateWelcome(platform: Platform, userId: string): Promise<BotResponse> {
   const connected = await hasConnectedWallet(userId, platform);
+  const t = await getUserTranslation(userId, platform);
 
   if (connected) {
     const wallet = await getConnectedWallet(userId, platform);
@@ -13,16 +15,16 @@ export async function generateWelcome(platform: Platform, userId: string): Promi
     if (platform === 'whatsapp') {
       return {
         text:
-          `👋 *Welcome back!*\n\n` +
-          `Your connected wallet:\n` +
+          `👋 *${t.welcome_title}*\n\n` +
+          `${t.welcome_connected}:\n` +
           `${networkLabel} \`${shortAddr}\`\n\n` +
           `What would you like to do?\n\n` +
           `Reply with:\n` +
-          `1️⃣ Balance\n` +
-          `2️⃣ Transactions\n` +
-          `3️⃣ Activity\n` +
-          `4️⃣ Gas price\n` +
-          `5️⃣ Track this wallet\n` +
+          `1️⃣ ${t.btn_view_balance}\n` +
+          `2️⃣ ${t.btn_view_transactions}\n` +
+          `3️⃣ ${t.cmd_activity_title}\n` +
+          `4️⃣ ${t.cmd_gas_title}\n` +
+          `5️⃣ ${t.btn_track_wallet}\n` +
           `6️⃣ Disconnect wallet`,
         parseMode: 'markdown',
       };
@@ -30,15 +32,15 @@ export async function generateWelcome(platform: Platform, userId: string): Promi
 
     return {
       text:
-        `👋 *Welcome back!*\n\n` +
-        `Your connected wallet:\n` +
+        `👋 *${t.welcome_title}*\n\n` +
+        `${t.welcome_connected}:\n` +
         `${networkLabel} \`${shortAddr}\`\n\n` +
         `What would you like to do?\n\n` +
-        `• "Balance"\n` +
-        `• "Transactions"\n` +
-        `• "Activity"\n` +
-        `• "Gas price"\n` +
-        `• "Track this wallet"\n` +
+        `• "${t.btn_view_balance}"\n` +
+        `• "${t.btn_view_transactions}"\n` +
+        `• "${t.cmd_activity_title}"\n` +
+        `• "${t.cmd_gas_title}"\n` +
+        `• "${t.btn_track_wallet}"\n` +
         `• "Disconnect wallet"\n\n` +
         `💎 *Billing:* /subscription · /upgrade · /billing`,
       parseMode: 'markdown',
@@ -48,8 +50,8 @@ export async function generateWelcome(platform: Platform, userId: string): Promi
   if (platform === 'whatsapp') {
     return {
       text:
-        `👋 *Welcome to Smart AI Explorer!*\n\n` +
-        `I am your AI assistant for the *XDC blockchain*.\n\n` +
+        `👋 *${t.welcome_title}*\n\n` +
+        `${t.welcome_description}\n\n` +
         `You can text me things like:\n` +
         `• "Balance of xdc..."\n` +
         `• "Show transactions"\n` +
@@ -65,8 +67,8 @@ export async function generateWelcome(platform: Platform, userId: string): Promi
 
   return {
     text:
-      `👋 *Welcome to Smart AI Explorer!*\n\n` +
-      `I am your AI assistant for the *XDC blockchain*.\n\n` +
+      `👋 *${t.welcome_title}*\n\n` +
+      `${t.welcome_description}\n\n` +
       `You can text me things like:\n` +
       `• "Balance of xdc..."\n` +
       `• "Show transactions"\n` +
