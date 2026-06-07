@@ -103,8 +103,9 @@ async function main(): Promise<void> {
   // Stripe webhook endpoint (raw body required for signature verification)
   app.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
     const signature = req.headers['stripe-signature'] as string;
+    const payload = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : JSON.stringify(req.body);
     const { handleStripeWebhook } = await import('./services/billing/webhookHandler');
-    const result = await handleStripeWebhook(req.body, signature);
+    const result = await handleStripeWebhook(payload, signature);
     res.status(result.success ? 200 : 400).json(result);
   });
 
