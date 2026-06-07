@@ -23,6 +23,8 @@ import {
   handleDisconnectConfirm,
   handleMenuBack,
   handleSettingsNotifications,
+  handleMenuAlerts,
+  handleAlertCreate,
 } from './walletConnect';
 import { handleTelegramMessage } from './adapter';
 
@@ -49,6 +51,7 @@ export function createBot(): Telegraf {
   bot.action('menu_balance', handleMenuBalance);
   bot.action('menu_transactions', handleMenuTransactions);
   bot.action('menu_track', handleMenuTrack);
+  bot.action('menu_alerts', handleMenuAlerts);
   bot.action('menu_ask_ai', handleMenuAskAI);
   bot.action('menu_settings', handleMenuSettings);
   bot.action('menu_back', handleMenuBack);
@@ -57,6 +60,9 @@ export function createBot(): Telegraf {
   bot.action('settings_notifications', handleSettingsNotifications);
   bot.action('settings_disconnect', handleSettingsDisconnect);
   bot.action('disconnect_confirm', handleDisconnectConfirm);
+
+  /* -------------------- Alert actions -------------------- */
+  bot.action('alert_create', handleAlertCreate);
 
   /* -------------------- Dashboard callbacks (placeholders) -------------------- */
   bot.action('dashboard_wallet', async (ctx: Context) => {

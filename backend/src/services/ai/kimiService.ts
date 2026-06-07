@@ -105,7 +105,12 @@ function mockKimiResponse(prompt: string): string {
     return JSON.stringify({ action: QueryAction.CREATE_ALERT, type: 'price_threshold', condition: { operator: '<', value: 0.02, currency: 'USD' } });
   }
 
-  // ─── 2. Help ────────────────────────────────────────────────
+  // ─── 2. Wallet status ───────────────────────────────────────
+  if (lower.includes('wallet connected') || lower.includes('my wallet') || lower.includes('connected wallet')) {
+    return JSON.stringify({ action: QueryAction.WALLET_STATUS });
+  }
+
+  // ─── 3. Help ────────────────────────────────────────────────
   if (lower.includes('help') || lower === '?') {
     return JSON.stringify({ action: QueryAction.HELP });
   }

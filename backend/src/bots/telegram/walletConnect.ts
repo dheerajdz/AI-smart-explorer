@@ -65,6 +65,7 @@ export async function showWelcomeBack(ctx: Context): Promise<void> {
     [Markup.button.callback('💰 Balance', 'menu_balance')],
     [Markup.button.callback('📜 Transactions', 'menu_transactions')],
     [Markup.button.callback('🔔 Track Wallet', 'menu_track')],
+    [Markup.button.callback('🚨 My Alerts', 'menu_alerts')],
     [Markup.button.callback('🤖 Ask AI', 'menu_ask_ai')],
     [Markup.button.callback('⚙️ Settings', 'menu_settings')],
   ]);
@@ -157,6 +158,7 @@ export async function showMainMenu(ctx: Context): Promise<void> {
     [Markup.button.callback('💰 Balance', 'menu_balance')],
     [Markup.button.callback('📜 Transactions', 'menu_transactions')],
     [Markup.button.callback('🔔 Track Wallet', 'menu_track')],
+    [Markup.button.callback('🚨 My Alerts', 'menu_alerts')],
     [Markup.button.callback('🤖 Ask AI', 'menu_ask_ai')],
     [Markup.button.callback('⚙️ Settings', 'menu_settings')],
   ]);
@@ -300,15 +302,55 @@ export async function handleMenuBack(ctx: Context): Promise<void> {
 }
 
 export async function handleSettingsNotifications(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const { cmdListAlerts } = await import('../../services/blockchainCommands');
+  const result = await cmdListAlerts(String(telegramId));
+
+  await ctx.reply(result.text, { parse_mode: 'Markdown' });
+
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('➕ Create New Alert', 'alert_create')],
+    [Markup.button.callback('⬅️ Back to Settings', 'menu_settings')],
+  ]);
+
   await ctx.reply(
-    '🔔 *Notification Settings*\n\nComing soon!\n\n' +
-    'You will be able to choose:\n' +
-    '• Successful transactions\n' +
-    '• Failed transactions\n' +
-    '• Incoming transfers\n' +
-    '• Outgoing transfers\n' +
-    '• Contract interactions\n' +
-    '• Large transactions only',
+    '🔔 *Manage Alerts*\n\nCreate alerts for price, gas, transactions, and more.',
+    { parse_mode: 'Markdown', ...keyboard }
+  );
+  await ctx.answerCbQuery();
+}
+
+export async function handleMenuAlerts(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const { cmdListAlerts } = await import('../../services/blockchainCommands');
+  const result = await cmdListAlerts(String(telegramId));
+
+  await ctx.reply(result.text, { parse_mode: 'Markdown' });
+
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('➕ Create Alert', 'alert_create')],
+    [Markup.button.callback('⬅️ Back to Menu', 'menu_back')],
+  ]);
+
+  await ctx.reply('🚨 *My Alerts*', { parse_mode: 'Markdown', ...keyboard });
+  await ctx.answerCbQuery();
+}
+
+export async function handleAlertCreate(ctx: Context): Promise<void> {
+  await ctx.reply(
+    '➕ *Create Alert*\n\n' +
+    'Send me a message like:\n' +
+    '• "Alert me when XDC drops below $0.02"\n' +
+    '• "Alert me when gas goes above 50 Gwei"\n' +
+    '• "Alert me when a transaction fails for xdc..."\n\n' +
+    'Or use commands:\n' +
+    '• /alert gas > 50\n' +
+    '• /alert price < 0.02\n' +
+    '• /alert failed xdc...',
     { parse_mode: 'Markdown' }
   );
   await ctx.answerCbQuery();

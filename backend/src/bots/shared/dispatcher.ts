@@ -99,7 +99,7 @@ export async function dispatch(
 
   // ─── 5. AI / Natural language fallback ──────────────────────
   logger.info('[dispatch] Falling back to AI routing');
-  const aiResult = await messageRouter(trimmed, userId);
+  const aiResult = await messageRouter(trimmed, userId, platform);
   await ActivityLogModel.create({
     userId,
     platform,

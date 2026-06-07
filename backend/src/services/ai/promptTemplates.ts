@@ -22,6 +22,7 @@ Rules:
 
 Supported actions:
 - balance              → Get XDC balance of an address
+- wallet_status        → Check if user has a connected wallet
 - transactions         → Get transactions for an address
 - transaction_detail   → Get details of a specific tx hash
 - wallet_activity      → Get activity stats for an address
@@ -39,6 +40,14 @@ Supported actions:
 - delete_alert         → Delete an alert
 
 Examples:
+
+Input: "Is my wallet connected?"
+Output:
+{"action":"wallet_status"}
+
+Input: "Show my connected wallet"
+Output:
+{"action":"wallet_status"}
 
 Input: "Show failed contract deploys last week"
 Output:

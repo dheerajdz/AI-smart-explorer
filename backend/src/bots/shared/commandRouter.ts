@@ -17,6 +17,9 @@ import {
   cmdPrice,
   cmdStatus,
   cmdHelp,
+  cmdListAlerts,
+  cmdCreateAlert,
+  cmdDeleteAlert,
 } from '../../services/blockchainCommands';
 
 export async function commandRouter(
@@ -107,6 +110,31 @@ export async function commandRouter(
 
     case '/list':
       return { text: cmdList(userId).text, parseMode: 'markdown' };
+
+    case '/alerts':
+      return { text: (await cmdListAlerts(userId)).text, parseMode: 'markdown' };
+
+    case '/alert': {
+      if (!address) {
+        return {
+          text:
+            `🔔 *Create Alert*\n\n` +
+            `Usage examples:\n` +
+            `• \`/alert gas > 50\` — Gas price alert\n` +
+            `• \`/alert price < 0.02\` — Price alert\n` +
+            `• \`/alert failed xdc...\` — Failed tx alert\n` +
+            `• \`/alert incoming xdc...\` — Incoming tx alert\n\n` +
+            `Or use natural language:\n` +
+            `"Alert me when XDC drops below \$0.02"`,
+          parseMode: 'markdown',
+        };
+      }
+      return { text: (await cmdCreateAlert(userId, platform, chatId, args)).text, parseMode: 'markdown' };
+    }
+
+    case '/deletealert':
+      if (!address) return { text: 'Usage: /deletealert <id>\n\nUse /alerts to see your alert IDs.' };
+      return { text: (await cmdDeleteAlert(address, userId)).text, parseMode: 'markdown' };
 
     case '/disconnect':
       const result = await disconnectWallet(userId, platform);

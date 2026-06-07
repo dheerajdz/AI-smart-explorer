@@ -361,13 +361,155 @@ export async function cmdStatus(): Promise<CommandResult> {
   }
 }
 
-// ─── 13. Help ───────────────────────────────────────────────
+// ─── 14. List Alerts ────────────────────────────────────────
+
+export async function cmdListAlerts(userId: string): Promise<CommandResult> {
+  try {
+    const { listAlerts } = await import('./alert');
+    const alerts = await listAlerts(userId);
+
+    if (alerts.length === 0) {
+      return {
+        success: true,
+        text:
+          '📋 *Your Alerts*\n\n' +
+          'You have no active alerts.\n\n' +
+          'Create one with:\n' +
+          '• \`/alert gas > 50\`\n' +
+          '• \`/alert price < 0.02\`\n' +
+          '• \`Alert me when XDC drops below \$0.02\`',
+      };
+    }
+
+    let text = `📋 *Your Alerts (${alerts.length})*\n\n`;
+    alerts.forEach((alert, i) => {
+      const status = alert.status === 'active' ? '✅' : alert.status === 'paused' ? '⏸️' : '🔔';
+      text += `${i + 1}. ${status} **${alert.name}** (${alert.type})\n`;
+      if (alert.condition.operator && alert.condition.value) {
+        text += `   ${alert.condition.operator} ${alert.condition.value} ${alert.condition.currency || alert.condition.unit || ''}\n`;
+      }
+      text += `   ID: \`${alert._id}\`\n`;
+      text += `   Triggers: ${alert.triggerCount}${alert.maxTriggers ? `/${alert.maxTriggers}` : ''}\n\n`;
+    });
+
+    text += 'To delete: \`/deletealert <id>\`';
+
+    return { success: true, text };
+  } catch (err) {
+    return formatError('cmdListAlerts', err);
+  }
+}
+
+// ─── 15. Create Alert ───────────────────────────────────────
+
+export async function cmdCreateAlert(
+  userId: string,
+  platform: string,
+  chatId: string,
+  args: string[]
+): Promise<CommandResult> {
+  try {
+    const { createAlert } = await import('./alert');
+
+    // Parse args: /alert gas > 50
+    // or: /alert price < 0.02
+    // or: /alert failed xdc...
+    const type = args[0]?.toLowerCase();
+    const operator = args[1];
+    const value = parseFloat(args[2]);
+    const address = args[2]; // for address-based alerts
+
+    let alertType: string;
+    let condition: any = {};
+    let name: string;
+
+    switch (type) {
+      case 'gas':
+        alertType = 'gas_spike';
+        condition = { operator, value, unit: 'Gwei', network: 'mainnet' };
+        name = `Gas ${operator} ${value} Gwei`;
+        break;
+      case 'price':
+        alertType = 'price_threshold';
+        condition = { operator, value, currency: 'USD', network: 'mainnet' };
+        name = `Price ${operator} $${value}`;
+        break;
+      case 'failed':
+        alertType = 'tx_failed';
+        condition = { address, network: detectNetwork(address) };
+        name = `Failed TX for ${address.slice(0, 10)}...`;
+        break;
+      case 'incoming':
+        alertType = 'tx_incoming';
+        condition = { address, network: detectNetwork(address) };
+        name = `Incoming TX for ${address.slice(0, 10)}...`;
+        break;
+      default:
+        return {
+          success: false,
+          text:
+            '❌ Unknown alert type.\n\n' +
+            'Usage: \`/alert gas > 50\`\n' +
+            'Or: \`Alert me when XDC drops below \$0.02\`',
+        };
+    }
+
+    const alert = await createAlert({
+      userId,
+      platform: platform as any,
+      chatId,
+      type: alertType as any,
+      name,
+      condition,
+      cooldownMinutes: 60,
+    });
+
+    return {
+      success: true,
+      text:
+        `🔔 *Alert Created*\n\n` +
+        `Name: **${alert.name}**\n` +
+        `Type: ${alert.type}\n` +
+        `Status: ✅ Active\n\n` +
+        `You'll be notified when the condition is met.`,
+    };
+  } catch (err) {
+    return formatError('cmdCreateAlert', err);
+  }
+}
+
+// ─── 16. Delete Alert ───────────────────────────────────────
+
+export async function cmdDeleteAlert(alertId: string, userId: string): Promise<CommandResult> {
+  try {
+    const { deleteAlert } = await import('./alert');
+    const success = await deleteAlert(alertId, userId);
+
+    if (success) {
+      return {
+        success: true,
+        text: `🗑️ *Alert Deleted*\n\nThe alert has been removed.`,
+      };
+    }
+    return {
+      success: false,
+      text: '⚠️ Alert not found or already deleted.',
+    };
+  } catch (err) {
+    return formatError('cmdDeleteAlert', err);
+  }
+}
 
 export function cmdHelp(): CommandResult {
   return {
     success: true,
     text:
       `🤖 *Smart AI Explorer* — Text the blockchain!\n\n` +
+
+      `*Alert Commands:*\n` +
+      `• \`/alerts\` — Show your active alerts\n` +
+      `• \`/alert\` — Create a new alert\n` +
+      `• \`/deletealert <id>\` — Delete an alert\n\n` +
 
       `*Wallet Commands:*\n` +
       `• \`/balance xdc...\` — Check XDC balance\n` +
@@ -399,7 +541,8 @@ export function cmdHelp(): CommandResult {
       `• "Balance of xdc..."\n` +
       `• "Show transactions for xdc..."\n` +
       `• "Gas price"\n` +
-      `• "Block 12345"\n\n` +
+      `• "Block 12345"\n` +
+      `• "Alert me when XDC drops below \$0.02"\n\n` +
 
       `*Examples:*\n` +
       `\`/balance xdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020\`\n` +

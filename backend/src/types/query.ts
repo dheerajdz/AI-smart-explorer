@@ -15,6 +15,7 @@ export enum QueryAction {
   // ── Wallet & Balance ─────────────────────────────────────
   WALLET_BALANCE = 'wallet_balance',
   WALLET_ACTIVITY = 'wallet_activity',
+  WALLET_STATUS = 'wallet_status',
   TOKEN_BALANCE = 'token_balance',
   NFT_BALANCE = 'nft_balance',
 
@@ -61,6 +62,26 @@ export interface ParsedQuery {
   /** Network context extracted from address (mainnet | testnet). */
   network?: 'mainnet' | 'testnet';
 
+  /** User ID for alert operations. */
+  userId?: string;
+
+  /** Platform for alert operations. */
+  platform?: 'telegram' | 'whatsapp' | 'slack' | 'x';
+
+  /** Chat ID for alert notifications. */
+  chatId?: string;
+
+  /** Alert-specific fields. */
+  alertType?: string;
+  alertName?: string;
+  threshold?: number;
+  operator?: string;
+  currency?: string;
+  unit?: string;
+  maxTriggers?: number;
+  cooldownMinutes?: number;
+  alertId?: string;
+
   /** Any extra parameters extracted from the user message. */
   [key: string]: any;
 }
@@ -72,6 +93,7 @@ export interface ParsedQuery {
 export const QUERY_ACTION_DESCRIPTIONS: Record<QueryAction, string> = {
   [QueryAction.WALLET_BALANCE]: 'Check XDC balance of a wallet address',
   [QueryAction.WALLET_ACTIVITY]: 'Show recent activity for a wallet',
+  [QueryAction.WALLET_STATUS]: 'Check connected wallet status',
   [QueryAction.TOKEN_BALANCE]: 'Check ERC-20 token balance',
   [QueryAction.NFT_BALANCE]: 'List NFT holdings for a wallet',
 
@@ -108,6 +130,10 @@ export const QUERY_ACTION_EXAMPLES: Record<QueryAction, string[]> = {
   [QueryAction.WALLET_ACTIVITY]: [
     'Show activity for xdc123...',
     'What has 0xabc... been doing?',
+  ],
+  [QueryAction.WALLET_STATUS]: [
+    'Is my wallet connected?',
+    'Show my connected wallet',
   ],
   [QueryAction.TOKEN_BALANCE]: [
     'Token balance of xdc123...',

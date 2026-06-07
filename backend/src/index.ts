@@ -8,6 +8,7 @@ import { createTelegramBot, createWhatsAppBot } from './bots';
 import { createSlackBot, handleSlackEvent } from './bots/slack';
 import { createXBot, getXWebhookRouter } from './bots/x';
 import { connectMongo, redis } from './database';
+import { connectMongo as connectMongoose } from './database/mongoose';
 import { startCronJobs } from './cron/jobs';
 import { requestLogger } from './middleware/requestLogger';
 import { errorHandler } from './middleware/errorHandler';
@@ -47,6 +48,7 @@ function verifySlackSignature(rawBody: Buffer, req: Request): boolean {
 
 async function main(): Promise<void> {
   await connectMongo();
+  await connectMongoose();
 
   const app = express();
   app.use(helmet());

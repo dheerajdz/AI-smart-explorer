@@ -17,7 +17,9 @@ export interface RouterResponse {
  */
 export async function messageRouter(
   message: string,
-  userId: string
+  userId: string,
+  platform?: string,
+  chatId?: string
 ): Promise<RouterResponse> {
   const trimmedMessage = message.trim();
 
@@ -36,6 +38,9 @@ export async function messageRouter(
     // If AI parsed successfully with a known action, execute it
     if (parsed.action !== 'unknown') {
       parsed.network = parsed.network || detectedNetwork;
+      parsed.userId = userId;
+      parsed.platform = platform as any;
+      parsed.chatId = chatId;
 
       const result = await executeQuery(parsed);
       logger.info('[messageRouter] AI routing success', { action: parsed.action });

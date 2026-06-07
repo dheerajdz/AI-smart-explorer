@@ -28,6 +28,8 @@ import {
   getFailedTransactions,
   getFailedContractDeployments,
 } from '../blockchain';
+import { createAlert, listAlerts, deleteAlert, pauseAlert } from '../alert';
+import { isValidXdcAddress } from '../../utils/network';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -57,6 +59,9 @@ export async function executeQuery(parsed: ParsedQuery): Promise<QueryResult> {
 
     case QueryAction.WALLET_ACTIVITY:
       return handleWalletActivity(parsed, network);
+
+    case QueryAction.WALLET_STATUS:
+      return handleWalletStatus(parsed);
 
     case QueryAction.TOKEN_BALANCE:
       return handleTokenBalance(parsed, network);
@@ -167,6 +172,45 @@ async function handleWalletActivity(parsed: ParsedQuery, network: Network): Prom
   } catch (err) {
     logger.error('[queryRouter] getWalletActivity failed', { address, network, error: err });
     return { text: '❌ Failed to fetch wallet activity. Please try again later.' };
+  }
+}
+
+async function handleWalletStatus(parsed: ParsedQuery): Promise<QueryResult> {
+  const { userId, platform } = parsed;
+
+  if (!userId || !platform) {
+    return { text: '❌ Unable to check wallet status. Please try again.' };
+  }
+
+  try {
+    const { getConnectedWallet } = await import('../connectedWalletService');
+    const wallet = await getConnectedWallet(userId, platform as any);
+
+    if (!wallet) {
+      return {
+        text:
+          `👛 *No Wallet Connected*\n\n` +
+          `You haven't connected a wallet yet.\n\n` +
+          `Send /start to connect your XDC wallet.`,
+      };
+    }
+
+    const networkLabel = wallet.network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet';
+    const prefix = wallet.network === 'testnet' ? 'txdc' : 'xdc';
+    const displayAddress = wallet.address.startsWith('0x')
+      ? `${prefix}${wallet.address.slice(2)}`
+      : wallet.address;
+
+    return {
+      text:
+        `👛 *Wallet Connected*\n\n` +
+        `Network: ${networkLabel}\n` +
+        `Address: \`${displayAddress}\`\n\n` +
+        `Use /disconnect to remove this wallet.`,
+    };
+  } catch (err) {
+    logger.error('[queryRouter] handleWalletStatus failed', { userId, platform, error: err });
+    return { text: '❌ Failed to check wallet status. Please try again later.' };
   }
 }
 
@@ -473,30 +517,106 @@ function handleNetworkStats(parsed: ParsedQuery, network: Network): Promise<Quer
 
 // ─── Alert Handlers ─────────────────────────────────────────
 
-function handleCreateAlert(parsed: ParsedQuery): Promise<QueryResult> {
-  return Promise.resolve({
-    text:
-      `🔔 *Alert Created*\n\n` +
-      `Your alert has been recorded. You will be notified when the condition is met.\n\n` +
-      `Condition: ${JSON.stringify(parsed.condition || {})}`,
-  });
+async function handleCreateAlert(parsed: ParsedQuery): Promise<QueryResult> {
+  const { userId, platform, chatId, condition } = parsed;
+
+  if (!userId || !platform || !chatId) {
+    return { text: '❌ Missing user information. Please try again.' };
+  }
+
+  const type = parsed.alertType || 'price_threshold';
+  const name = parsed.alertName || `${type} alert`;
+  const threshold = parsed.threshold || parsed.value || 0;
+  const operator = parsed.operator || 'above';
+  const address = parsed.address || parsed.wallet || '';
+
+  try {
+    const alert = await createAlert({
+      userId: userId.toString(),
+      platform: platform as any,
+      chatId: chatId.toString(),
+      type: type as any,
+      name,
+      condition: {
+        operator: operator as any,
+        value: Number(threshold),
+        currency: parsed.currency || 'USD',
+        address: address || undefined,
+        threshold: Number(threshold) || undefined,
+        unit: parsed.unit || 'Gwei',
+      },
+      maxTriggers: parsed.maxTriggers || undefined,
+      cooldownMinutes: parsed.cooldownMinutes || 60,
+    });
+
+    return {
+      text:
+        `🔔 *Alert Created*\n\n` +
+        `Name: **${alert.name}**\n` +
+        `Type: ${alert.type}\n` +
+        `Condition: ${operator} ${threshold}\n` +
+        `Status: ✅ Active\n\n` +
+        `You'll be notified when the condition is met.`,
+    };
+  } catch (err) {
+    logger.error('[queryRouter] createAlert failed', { error: err });
+    return { text: '❌ Failed to create alert. Please try again.' };
+  }
 }
 
-function handleListAlerts(parsed: ParsedQuery): Promise<QueryResult> {
-  return Promise.resolve({
-    text:
-      `📋 *Your Alerts*\n\n` +
-      `You have no active alerts.\n\n` +
-      `Create one with: "Alert me when XDC drops below $0.02"`,
-  });
+async function handleListAlerts(parsed: ParsedQuery): Promise<QueryResult> {
+  const { userId } = parsed;
+
+  if (!userId) {
+    return { text: '❌ Missing user information. Please try again.' };
+  }
+
+  try {
+    const alerts = await listAlerts(userId.toString());
+
+    if (alerts.length === 0) {
+      return {
+        text:
+          `📋 *Your Alerts*\n\n` +
+          `You have no active alerts.\n\n` +
+          `Create one with: "Alert me when XDC drops below $0.02"`,
+      };
+    }
+
+    let text = `📋 *Your Alerts (${alerts.length})*\n\n`;
+    alerts.forEach((alert, i) => {
+      const status = alert.status === 'active' ? '✅' : alert.status === 'paused' ? '⏸️' : '🔔';
+      text += `${i + 1}. ${status} **${alert.name}** (${alert.type})\n`;
+      if (alert.condition.operator && alert.condition.value) {
+        text += `   ${alert.condition.operator} ${alert.condition.value} ${alert.condition.currency || ''}\n`;
+      }
+      text += `   Triggers: ${alert.triggerCount}${alert.maxTriggers ? `/${alert.maxTriggers}` : ''}\n\n`;
+    });
+
+    return { text };
+  } catch (err) {
+    logger.error('[queryRouter] listAlerts failed', { error: err });
+    return { text: '❌ Failed to list alerts. Please try again.' };
+  }
 }
 
-function handleDeleteAlert(parsed: ParsedQuery): Promise<QueryResult> {
-  return Promise.resolve({
-    text:
-      `🗑️ *Alert Deleted*\n\n` +
-      `The alert has been removed.`,
-  });
+async function handleDeleteAlert(parsed: ParsedQuery): Promise<QueryResult> {
+  const { userId, alertId } = parsed;
+
+  if (!userId || !alertId) {
+    return { text: '❌ Please provide an alert ID.\n\nExample: "Delete alert 123"' };
+  }
+
+  try {
+    const success = await deleteAlert(alertId.toString(), userId.toString());
+    if (success) {
+      return { text: `🗑️ *Alert Deleted*\n\nThe alert has been removed.` };
+    }
+    return { text: '⚠️ Alert not found or already deleted.' };
+  } catch (err) {
+    logger.error('[queryRouter] deleteAlert failed', { error: err });
+    return { text: '❌ Failed to delete alert. Please try again.' };
+  }
 }
 
 // ─── Utility Handlers ───────────────────────────────────────
@@ -516,6 +636,10 @@ function handleHelp(): Promise<QueryResult> {
       `*Network Queries:*\n` +
       `• "Gas price"\n` +
       `• "Block 12345"\n\n` +
+      `*Alerts:*\n` +
+      `• "Alert me when XDC drops below $0.02"\n` +
+      `• "Show my alerts"\n` +
+      `• "Delete alert #1"\n\n` +
       `*Commands:*\n` +
       `/help, /status, /track, /untrack, /list, /balance, /tx, /price`,
   });
