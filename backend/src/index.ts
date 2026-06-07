@@ -4,6 +4,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import routes from './routes';
 import { createTelegramBot, createWhatsAppBot } from './bots';
+import { createSlackBot, getSlackReceiver } from './bots/slack';
+import { createXBot, getXWebhookRouter } from './bots/x';
 import { connectMongo, redis } from './database';
 import { startCronJobs } from './cron/jobs';
 import { requestLogger } from './middleware/requestLogger';
@@ -24,6 +26,16 @@ async function main(): Promise<void> {
   app.use(express.urlencoded({ extended: false }));
   app.use(express.json());
   app.use(requestLogger);
+
+  // Slack events router (must be before express.json() if using raw body verification)
+  const slackApp = createSlackBot();
+  if (slackApp) {
+    app.use('/slack/events', getSlackReceiver()?.router || express.Router());
+  }
+
+  // X webhook router
+  app.use(getXWebhookRouter());
+
   app.use(routes);
   app.use(errorHandler);
 
@@ -47,6 +59,10 @@ async function main(): Promise<void> {
   // WhatsApp bot
   createWhatsAppBot();
   logger.info('📱 WhatsApp webhook ready at POST /webhook/whatsapp');
+
+  // X bot
+  await createXBot();
+  logger.info('🐦 X webhook ready at POST /webhook/x');
 
   process.once('SIGINT', () => {
     bot.stop('SIGINT');
