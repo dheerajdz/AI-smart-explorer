@@ -72,8 +72,12 @@ export async function markAlertTriggered(alertId: string): Promise<void> {
 
 export async function checkAlertCooldown(alert: IAlert): Promise<boolean> {
   if (!alert.lastTriggered) return true;
-  const cooldownMs = alert.cooldownMinutes * 60 * 1000;
-  return Date.now() - alert.lastTriggered.getTime() >= cooldownMs;
+  const cooldownMinutes = Math.max(alert.cooldownMinutes || 60, 5); // Minimum 5 min cooldown
+  const cooldownMs = cooldownMinutes * 60 * 1000;
+  const lastTriggeredTime = alert.lastTriggered instanceof Date ? alert.lastTriggered.getTime() : new Date(alert.lastTriggered).getTime();
+  const timeSince = Date.now() - lastTriggeredTime;
+  logger.debug('[checkAlertCooldown]', { alertId: alert._id, cooldownMinutes, timeSinceMs: timeSince, lastTriggered: alert.lastTriggered });
+  return timeSince >= cooldownMs;
 }
 
 export async function checkMaxTriggers(alert: IAlert): Promise<boolean> {
