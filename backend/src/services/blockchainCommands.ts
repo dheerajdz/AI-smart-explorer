@@ -535,6 +535,34 @@ export async function cmdSetLanguage(userId: string, lang: string): Promise<Comm
   }
 }
 
+export async function cmdPremium(userId: string): Promise<CommandResult> {
+  try {
+    const { generateUPIPayment } = await import('../payments/upiService');
+    const payment = await generateUPIPayment(99, 'smartai@upi', userId);
+
+    return {
+      success: true,
+      text:
+        `💎 *Premium Plan*\n\n` +
+        `Upgrade to unlock:\n` +
+        `• Unlimited alerts\n` +
+        `• Advanced analytics\n` +
+        `• Priority support\n` +
+        `• Custom notifications\n\n` +
+        `Price: **₹99/month**\n\n` +
+        `Click to pay via UPI:\n` +
+        `[Pay ₹99](${payment.upiLink})\n\n` +
+        `Transaction ID: \`${payment.transactionId}\``,
+    };
+  } catch (err) {
+    logger.error('cmdPremium failed', { error: err });
+    return {
+      success: false,
+      text: '❌ Failed to generate payment. Please try again.',
+    };
+  }
+}
+
 export function cmdHelp(): CommandResult {
   return {
     success: true,

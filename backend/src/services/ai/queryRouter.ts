@@ -724,7 +724,7 @@ function handleHelp(): Promise<QueryResult> {
       `• /language hi — Hindi\n` +
       `• /language mr — Marathi\n\n` +
       `*Commands:*\n` +
-      `/help, /status, /track, /untrack, /list, /balance, /tx, /price`,
+      `/start, /menu, /status, /track, /untrack, /list, /balance, /tx, /price, /premium, /language, /help`,
   });
 }
 

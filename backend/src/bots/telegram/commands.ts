@@ -31,6 +31,29 @@ import {
 } from '../../services/blockchainCommands';
 
 /* ------------------------------------------------------------------ */
+/*  /menu  — show main menu anytime                                    */
+/* ------------------------------------------------------------------ */
+export async function menuCommand(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const text =
+    `🏠 *Main Menu*\n\n` +
+    `Choose an option:`;
+
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('💰 Balance', 'menu_balance')],
+    [Markup.button.callback('📜 Transactions', 'menu_transactions')],
+    [Markup.button.callback('🔔 Track Wallet', 'menu_track')],
+    [Markup.button.callback('🚨 My Alerts', 'menu_alerts')],
+    [Markup.button.callback('🤖 Ask AI', 'menu_ask_ai')],
+    [Markup.button.callback('⚙️ Settings', 'menu_settings')],
+  ]);
+
+  await ctx.reply(text, { parse_mode: 'Markdown', ...keyboard });
+}
+
+/* ------------------------------------------------------------------ */
 /*  /start  — onboarding menu                                          */
 /* ------------------------------------------------------------------ */
 export async function startCommand(ctx: Context): Promise<void> {

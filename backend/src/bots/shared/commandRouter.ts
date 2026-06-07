@@ -20,6 +20,7 @@ import {
   cmdSetLanguage,
   cmdCreateAlert,
   cmdDeleteAlert,
+  cmdPremium,
 } from '../../services/blockchainCommands';
 
 export async function commandRouter(
@@ -113,6 +114,9 @@ export async function commandRouter(
 
     case '/alerts':
       return { text: (await cmdListAlerts(userId)).text, parseMode: 'markdown' };
+
+    case '/premium':
+      return { text: (await cmdPremium(userId)).text, parseMode: 'markdown' };
 
     case '/language': {
       const lang = args[0] || 'en';

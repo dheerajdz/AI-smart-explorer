@@ -214,6 +214,8 @@ export const QUERY_ACTION_EXAMPLES: Record<QueryAction, string[]> = {
   [QueryAction.HELP]: [
     'help',
     '?',
+    'menu',
+    'commands',
   ],
   [QueryAction.UNKNOWN]: [
     'Try one of the examples above',

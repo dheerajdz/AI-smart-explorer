@@ -3,6 +3,7 @@ import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 import {
   startCommand,
+  menuCommand,
   handleSignupAction,
   handleSigninAction,
   handleResendSignupOTP,
@@ -35,6 +36,7 @@ export function createBot(): Telegraf {
 
   /* -------------------- Commands -------------------- */
   bot.command('start', startCommand);
+  bot.command('menu', menuCommand);
   bot.command('logout', logoutCommand);
 
   /* -------------------- Auth Callbacks -------------------- */
