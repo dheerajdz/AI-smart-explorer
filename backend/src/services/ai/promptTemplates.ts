@@ -68,8 +68,36 @@ Input: "How many XDC does 0x1111... hold?"
 Output:
 {"action":"balance","address":"0x1111..."}
 
+Input: "xdc123 ka balance batao"
+Output:
+{"action":"balance","address":"xdc123"}
+
+Input: "माझं wallet activity दाखवा"
+Output:
+{"action":"wallet_activity","address":"wallet"}
+
+Input: "balance dikhao"
+Output:
+{"action":"balance"}
+
+Input: "0xabc... ka transaction detail batao"
+Output:
+{"action":"transaction_detail","txHash":"0xabc..."}
+
+Input: "mera wallet track karo"
+Output:
+{"action":"track_wallet","address":"wallet"}
+
+Input: "gas price kitna hai"
+Output:
+{"action":"gas_price"}
+
+Input: "maze alerts dakhava"
+Output:
+{"action":"list_alerts"}
+
 Return ONLY JSON for this input:
-`;
+`
 
 /**
  * ALERT_CONDITION_PARSER_PROMPT

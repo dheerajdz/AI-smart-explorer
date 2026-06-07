@@ -4,6 +4,8 @@
 // Any new capability must be registered here first.
 // ============================================================
 
+import { SupportedLanguage } from '../services/i18n';
+
 /**
  * Every action the Smart AI Explorer bot supports.
  * Used for:
@@ -57,6 +59,9 @@ export const VALID_QUERY_ACTIONS: readonly QueryAction[] = Object.values(QueryAc
 export interface ParsedQuery {
   /** The routing key — determines which handler executes. */
   action: QueryAction;
+
+  /** Detected language from user message. */
+  language: SupportedLanguage;
 
   /** Network context extracted from address (mainnet | testnet). */
   network?: 'mainnet' | 'testnet';
