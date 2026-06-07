@@ -78,8 +78,16 @@ export async function constructWebhookEvent(
 
   try {
     return stripe.webhooks.constructEvent(payload, signature, env.STRIPE_WEBHOOK_SECRET);
-  } catch (err) {
-    logger.error('[stripeService] Webhook signature verification failed', { error: err });
+  } catch (err: any) {
+    logger.error('[stripeService] Webhook signature verification failed', { 
+      error: err?.message || err,
+      type: err?.type,
+      hasPayload: !!payload,
+      payloadLength: payload?.length || 0,
+      hasSignature: !!signature,
+      signaturePrefix: signature?.substring(0, 20),
+      webhookSecretPrefix: env.STRIPE_WEBHOOK_SECRET?.substring(0, 20),
+    });
     return null;
   }
 }

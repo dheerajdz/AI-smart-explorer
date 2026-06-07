@@ -165,7 +165,7 @@ router.get('/success', async (req: Request, res: Response) => {
             <div class="tier">${tier === 'pro' ? '💎 Pro Plan' : tier === 'enterprise' ? '🏢 Enterprise Plan' : 'Plan'} Activated</div>
             <div class="message">Thank you for upgrading! Your subscription is now active.</div>
             <div class="message">Return to Telegram and use /subscription to see your new limits.</div>
-            <a class="btn" href="https://t.me/${process.env.TELEGRAM_BOT_USERNAME || 'your_bot'}">Open Telegram Bot</a>
+            <a class="btn" href="https://t.me/AISmartExplorerXDCbot">Open Telegram Bot</a>
           </div>
         </body>
       </html>
@@ -201,7 +201,7 @@ router.get('/cancel', (req: Request, res: Response) => {
           <h1>Payment Cancelled</h1>
           <div class="message">You cancelled the checkout process. No charges were made.</div>
           <div class="message">You can upgrade anytime with /upgrade in the bot.</div>
-          <a class="btn" href="https://t.me/${process.env.TELEGRAM_BOT_USERNAME || 'your_bot'}">Back to Bot</a>
+          <a class="btn" href="https://t.me/AISmartExplorerXDCbot">Back to Bot</a>
         </div>
       </body>
     </html>
