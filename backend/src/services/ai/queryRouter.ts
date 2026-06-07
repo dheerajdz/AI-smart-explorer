@@ -30,6 +30,7 @@ import {
 } from '../blockchain';
 import { createAlert, listAlerts, deleteAlert, pauseAlert } from '../alert';
 import { isValidXdcAddress } from '../../utils/network';
+import { translateResponse, SupportedLanguage } from '../i18n';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -44,86 +45,125 @@ export interface QueryResult {
  * Execute a parsed query by routing to the correct blockchain service.
  *
  * @param parsed The structured query from queryParser.ts
+ * @param userLanguage The user's preferred language for response translation
  * @returns Friendly text response for WhatsApp/Telegram
  */
-export async function executeQuery(parsed: ParsedQuery): Promise<QueryResult> {
+export async function executeQuery(
+  parsed: ParsedQuery,
+  userLanguage: SupportedLanguage = 'en'
+): Promise<QueryResult> {
   const { action } = parsed;
   const network: Network = parsed.network || 'mainnet';
 
   logger.info('[queryRouter] Executing action', { action, network, params: Object.keys(parsed) });
 
+  let result: QueryResult;
+
   switch (action) {
     // ── Wallet & Balance ─────────────────────────────────────
     case QueryAction.WALLET_BALANCE:
-      return handleWalletBalance(parsed, network);
+      result = await handleWalletBalance(parsed, network);
+      break;
 
     case QueryAction.WALLET_ACTIVITY:
-      return handleWalletActivity(parsed, network);
+      result = await handleWalletActivity(parsed, network);
+      break;
 
     case QueryAction.WALLET_STATUS:
-      return handleWalletStatus(parsed);
+      result = await handleWalletStatus(parsed);
+      break;
 
     case QueryAction.TOKEN_BALANCE:
-      return handleTokenBalance(parsed, network);
+      result = await handleTokenBalance(parsed, network);
+      break;
 
     case QueryAction.NFT_BALANCE:
-      return handleNftBalance(parsed, network);
+      result = await handleNftBalance(parsed, network);
+      break;
 
     // ── Transactions ─────────────────────────────────────────
     case QueryAction.TRANSACTIONS:
-      return handleTransactions(parsed, network);
+      result = await handleTransactions(parsed, network);
+      break;
 
     case QueryAction.TRANSACTION_DETAIL:
-      return handleTransactionDetail(parsed, network);
+      result = await handleTransactionDetail(parsed, network);
+      break;
 
     case QueryAction.FAILED_TRANSACTIONS:
-      return handleFailedTransactions(parsed, network);
+      result = await handleFailedTransactions(parsed, network);
+      break;
 
     case QueryAction.LARGE_TRANSFERS:
-      return handleLargeTransfers(parsed, network);
+      result = await handleLargeTransfers(parsed, network);
+      break;
 
     // ── Contracts ────────────────────────────────────────────
     case QueryAction.CONTRACT_DEPLOYER:
-      return handleContractDeployer(parsed, network);
+      result = await handleContractDeployer(parsed, network);
+      break;
 
     case QueryAction.CONTRACT_VERIFICATION:
-      return handleContractVerification(parsed, network);
+      result = await handleContractVerification(parsed, network);
+      break;
 
     case QueryAction.FAILED_CONTRACT_DEPLOYMENTS:
-      return handleFailedContractDeployments(parsed, network);
+      result = await handleFailedContractDeployments(parsed, network);
+      break;
 
     // ── Network & Gas ────────────────────────────────────────
     case QueryAction.GAS_PRICE:
-      return handleGasPrice(parsed, network);
+      result = await handleGasPrice(parsed, network);
+      break;
 
     case QueryAction.BLOCK_INFO:
-      return handleBlockInfo(parsed, network);
+      result = await handleBlockInfo(parsed, network);
+      break;
 
     case QueryAction.NETWORK_STATS:
-      return handleNetworkStats(parsed, network);
+      result = await handleNetworkStats(parsed, network);
+      break;
 
     // ── Alerts ───────────────────────────────────────────────
     case QueryAction.CREATE_ALERT:
-      return handleCreateAlert(parsed);
+      result = await handleCreateAlert(parsed);
+      break;
 
     case QueryAction.LIST_ALERTS:
-      return handleListAlerts(parsed);
+      result = await handleListAlerts(parsed);
+      break;
 
     case QueryAction.DELETE_ALERT:
-      return handleDeleteAlert(parsed);
+      result = await handleDeleteAlert(parsed);
+      break;
+
+    // ── Language ─────────────────────────────────────────────
+    case QueryAction.SET_LANGUAGE:
+      result = await handleSetLanguage(parsed);
+      break;
 
     // ── Help ─────────────────────────────────────────────────
-    case QueryAction.SET_LANGUAGE:
-      return handleSetLanguage(parsed);
-
     case QueryAction.HELP:
-      return handleHelp();
+      result = await handleHelp();
+      break;
 
     // ── Unknown ──────────────────────────────────────────────
     case QueryAction.UNKNOWN:
     default:
-      return handleUnknown(parsed);
+      result = await handleUnknown(parsed);
+      break;
   }
+
+  // Translate response if user prefers non-English
+  if (userLanguage !== 'en' && result.text) {
+    try {
+      result.text = await translateResponse(result.text, userLanguage);
+    } catch (err) {
+      logger.error('[queryRouter] Translation failed, returning original', { error: err, userLanguage });
+    }
+  }
+
+  return result;
 }
 
 // ─── Wallet & Balance Handlers ──────────────────────────────
@@ -510,46 +550,41 @@ async function handleBlockInfo(parsed: ParsedQuery, network: Network): Promise<Q
 function handleNetworkStats(parsed: ParsedQuery, network: Network): Promise<QueryResult> {
   return Promise.resolve({
     text:
-      `📈 *Network Stats*\n\n` +
-      `Network: ${network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n\n` +
-      `Network-wide statistics are not yet available. Try:\n` +
-      `• "Gas price"\n` +
-      `• "Block 12345"`,
+      `🌐 *Network Stats*\n\n` +
+      `Network: ${network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
+      `XDC Network is operational ✅\n\n` +
+      `Use /gas for current gas prices\n` +
+      `Use /block for latest block info`,
   });
 }
 
 // ─── Alert Handlers ─────────────────────────────────────────
 
 async function handleCreateAlert(parsed: ParsedQuery): Promise<QueryResult> {
-  const { userId, platform, chatId, condition } = parsed;
+  const { userId, platform, chatId, alertType, alertName, threshold, operator, currency, unit } = parsed;
 
   if (!userId || !platform || !chatId) {
-    return { text: '❌ Missing user information. Please try again.' };
+    return { text: '❌ Unable to create alert. Please try again.' };
   }
 
-  const type = parsed.alertType || 'price_threshold';
-  const name = parsed.alertName || `${type} alert`;
-  const threshold = parsed.threshold || parsed.value || 0;
-  const operator = parsed.operator || 'above';
-  const address = parsed.address || parsed.wallet || '';
-
   try {
+    const type = alertType || 'price_threshold';
+    const name = alertName || `${type} alert`;
+    const condition: any = {};
+
+    if (threshold !== undefined) condition.value = threshold;
+    if (operator) condition.operator = operator;
+    if (currency) condition.currency = currency;
+    if (unit) condition.unit = unit;
+
     const alert = await createAlert({
-      userId: userId.toString(),
+      userId,
       platform: platform as any,
-      chatId: chatId.toString(),
+      chatId,
       type: type as any,
       name,
-      condition: {
-        operator: operator as any,
-        value: Number(threshold),
-        currency: parsed.currency || 'USD',
-        address: address || undefined,
-        threshold: Number(threshold) || undefined,
-        unit: parsed.unit || 'Gwei',
-      },
-      maxTriggers: parsed.maxTriggers || undefined,
-      cooldownMinutes: parsed.cooldownMinutes || 60,
+      condition,
+      cooldownMinutes: 60,
     });
 
     return {
@@ -557,13 +592,12 @@ async function handleCreateAlert(parsed: ParsedQuery): Promise<QueryResult> {
         `🔔 *Alert Created*\n\n` +
         `Name: **${alert.name}**\n` +
         `Type: ${alert.type}\n` +
-        `Condition: ${operator} ${threshold}\n` +
         `Status: ✅ Active\n\n` +
         `You'll be notified when the condition is met.`,
     };
   } catch (err) {
     logger.error('[queryRouter] createAlert failed', { error: err });
-    return { text: '❌ Failed to create alert. Please try again.' };
+    return { text: '❌ Failed to create alert. Please try again later.' };
   }
 }
 
@@ -571,18 +605,21 @@ async function handleListAlerts(parsed: ParsedQuery): Promise<QueryResult> {
   const { userId } = parsed;
 
   if (!userId) {
-    return { text: '❌ Missing user information. Please try again.' };
+    return { text: '❌ Unable to list alerts. Please try again.' };
   }
 
   try {
-    const alerts = await listAlerts(userId.toString());
+    const alerts = await listAlerts(userId);
 
     if (alerts.length === 0) {
       return {
         text:
           `📋 *Your Alerts*\n\n` +
           `You have no active alerts.\n\n` +
-          `Create one with: "Alert me when XDC drops below $0.02"`,
+          `Create one with:\n` +
+          `• \`/alert gas > 50\`\n` +
+          `• \`/alert price < 0.02\`\n` +
+          `• \`Alert me when XDC drops below \$0.02\``,
       };
     }
 
@@ -591,64 +628,77 @@ async function handleListAlerts(parsed: ParsedQuery): Promise<QueryResult> {
       const status = alert.status === 'active' ? '✅' : alert.status === 'paused' ? '⏸️' : '🔔';
       text += `${i + 1}. ${status} **${alert.name}** (${alert.type})\n`;
       if (alert.condition.operator && alert.condition.value) {
-        text += `   ${alert.condition.operator} ${alert.condition.value} ${alert.condition.currency || ''}\n`;
+        text += `   ${alert.condition.operator} ${alert.condition.value} ${alert.condition.currency || alert.condition.unit || ''}\n`;
       }
+      text += `   ID: \`${alert._id}\`\n`;
       text += `   Triggers: ${alert.triggerCount}${alert.maxTriggers ? `/${alert.maxTriggers}` : ''}\n\n`;
     });
+
+    text += 'To delete: \`/deletealert <id>\`';
 
     return { text };
   } catch (err) {
     logger.error('[queryRouter] listAlerts failed', { error: err });
-    return { text: '❌ Failed to list alerts. Please try again.' };
+    return { text: '❌ Failed to list alerts. Please try again later.' };
   }
 }
 
 async function handleDeleteAlert(parsed: ParsedQuery): Promise<QueryResult> {
-  const { userId, alertId } = parsed;
+  const { alertId, userId } = parsed;
 
-  if (!userId || !alertId) {
-    return { text: '❌ Please provide an alert ID.\n\nExample: "Delete alert 123"' };
+  if (!alertId) {
+    return { text: '❌ Please provide an alert ID.\n\nUsage: /deletealert <id>' };
   }
 
   try {
-    const success = await deleteAlert(alertId.toString(), userId.toString());
+    const success = await deleteAlert(alertId, userId || '');
+
     if (success) {
-      return { text: `🗑️ *Alert Deleted*\n\nThe alert has been removed.` };
+      return {
+        text: `🗑️ *Alert Deleted*\n\nThe alert has been removed.`,
+      };
     }
-    return { text: '⚠️ Alert not found or already deleted.' };
+    return {
+      text: '⚠️ Alert not found or already deleted.',
+    };
   } catch (err) {
     logger.error('[queryRouter] deleteAlert failed', { error: err });
-    return { text: '❌ Failed to delete alert. Please try again.' };
+    return { text: '❌ Failed to delete alert. Please try again later.' };
   }
 }
 
-// ─── Utility Handlers ───────────────────────────────────────
+// ─── Language Handler ───────────────────────────────────────
 
 async function handleSetLanguage(parsed: ParsedQuery): Promise<QueryResult> {
   const { userId, platform, language } = parsed;
   const lang = language || 'en';
-  
+
   if (!['en', 'hi', 'mr'].includes(lang)) {
     return { text: '❌ Invalid language. Use: en, hi, or mr' };
   }
-  
-  // Update user preference in DB
+
   if (userId && platform) {
-    const { UserModel } = await import('../../models/User');
-    await UserModel.updateOne(
-      { telegramId: parseInt(userId) },
-      { preferredLanguage: lang }
-    );
+    try {
+      const { UserModel } = await import('../../models/User');
+      await UserModel.updateOne(
+        { telegramId: parseInt(userId) },
+        { preferredLanguage: lang }
+      );
+    } catch (err) {
+      logger.error('[queryRouter] handleSetLanguage failed', { error: err });
+    }
   }
-  
+
   const messages: Record<string, Record<string, string>> = {
     en: { en: '✅ Language set to English', hi: '✅ भाषा अंग्रेजी में सेट की गई', mr: '✅ भाषा इंग्रजीमध्ये सेट केली' },
     hi: { en: '✅ Language set to Hindi', hi: '✅ भाषा हिंदी में सेट की गई', mr: '✅ भाषा हिंदीमध्ये सेट केली' },
     mr: { en: '✅ Language set to Marathi', hi: '✅ भाषा मराठी में सेट की गई', mr: '✅ भाषा मराठीत सेट केली' },
   };
-  
+
   return { text: messages[lang][lang] };
 }
+
+// ─── Utility Handlers ───────────────────────────────────────
 
 function handleHelp(): Promise<QueryResult> {
   return Promise.resolve({
@@ -666,9 +716,13 @@ function handleHelp(): Promise<QueryResult> {
       `• "Gas price"\n` +
       `• "Block 12345"\n\n` +
       `*Alerts:*\n` +
-      `• "Alert me when XDC drops below $0.02"\n` +
+      `• "Alert me when XDC drops below \$0.02"\n` +
       `• "Show my alerts"\n` +
       `• "Delete alert #1"\n\n` +
+      `*Language:*\n` +
+      `• /language en — English\n` +
+      `• /language hi — Hindi\n` +
+      `• /language mr — Marathi\n\n` +
       `*Commands:*\n` +
       `/help, /status, /track, /untrack, /list, /balance, /tx, /price`,
   });
