@@ -43,3 +43,7 @@ coverage/
 temp/
 tmp/
 *.tmp
+
+# pnpm store
+.pnpm-store/
+

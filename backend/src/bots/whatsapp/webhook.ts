@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { logger } from '../../utils/logger';
-import { messageHandler } from './messageHandler';
+import { sendWhatsAppMessage } from './sendMessage';
+import { dispatch } from '../shared';
 
 interface TwilioWebhookBody {
   From?: string;
@@ -13,12 +14,11 @@ export async function whatsappWebhook(req: Request, res: Response): Promise<void
   const fromNumber = From?.replace('whatsapp:', '') ?? 'unknown';
   const messageBody = Body ?? '';
 
-  logger.info('Received WhatsApp Message:');
-  logger.info(`From: ${fromNumber}`);
-  logger.info(`Message: ${messageBody}`);
+  logger.info('Received WhatsApp Message:', { from: fromNumber, body: messageBody });
 
   try {
-    await messageHandler(fromNumber, messageBody);
+    const response = await dispatch('whatsapp', fromNumber, messageBody);
+    await sendWhatsAppMessage(fromNumber, response.text);
   } catch (err) {
     logger.error('Error handling WhatsApp message', {
       error: (err as Error).message,

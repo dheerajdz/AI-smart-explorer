@@ -10,7 +10,7 @@ export interface ConnectResult {
 
 export async function connectWallet(
   userId: string,
-  platform: 'telegram' | 'whatsapp',
+  platform: 'telegram' | 'whatsapp' | 'slack' | 'x',
   address: string,
   network?: Network
 ): Promise<ConnectResult> {
@@ -48,7 +48,7 @@ export async function connectWallet(
 
 export async function disconnectWallet(
   userId: string,
-  platform: 'telegram' | 'whatsapp'
+  platform: 'telegram' | 'whatsapp' | 'slack' | 'x'
 ): Promise<{ success: boolean; message: string }> {
   try {
     const result = await ConnectedWalletModel.updateOne(
@@ -69,14 +69,14 @@ export async function disconnectWallet(
 
 export async function getConnectedWallet(
   userId: string,
-  platform: 'telegram' | 'whatsapp'
+  platform: 'telegram' | 'whatsapp' | 'slack' | 'x'
 ): Promise<IConnectedWallet | null> {
   return ConnectedWalletModel.findByUserId(userId, platform);
 }
 
 export async function hasConnectedWallet(
   userId: string,
-  platform: 'telegram' | 'whatsapp'
+  platform: 'telegram' | 'whatsapp' | 'slack' | 'x'
 ): Promise<boolean> {
   const count = await ConnectedWalletModel.countDocuments({ userId, platform, isConnected: true });
   return count > 0;

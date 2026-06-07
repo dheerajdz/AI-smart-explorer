@@ -8,17 +8,8 @@ import {
   handleResendSignupOTP,
   handleResendSigninOTP,
   handleCancel,
-  handleTextMessage,
   logoutCommand,
   handleLogoutAction,
-  trackCommand,
-  untrackCommand,
-  listCommand,
-  balanceCommand,
-  txCommand,
-  priceCommand,
-  statusCommand,
-  helpCommand,
 } from './commands';
 import {
   showMainMenu,
@@ -33,7 +24,7 @@ import {
   handleMenuBack,
   handleSettingsNotifications,
 } from './walletConnect';
-import { messageRouter } from '../../services/messageRouter';
+import { handleTelegramMessage } from './adapter';
 
 export function createBot(): Telegraf {
   const bot = new Telegraf(env.TELEGRAM_BOT_TOKEN);
@@ -41,14 +32,6 @@ export function createBot(): Telegraf {
   /* -------------------- Commands -------------------- */
   bot.command('start', startCommand);
   bot.command('logout', logoutCommand);
-  bot.command('track', trackCommand);
-  bot.command('untrack', untrackCommand);
-  bot.command('list', listCommand);
-  bot.command('balance', balanceCommand);
-  bot.command('tx', txCommand);
-  bot.command('price', priceCommand);
-  bot.command('status', statusCommand);
-  bot.command('help', helpCommand);
 
   /* -------------------- Auth Callbacks -------------------- */
   bot.action('action_signup', handleSignupAction);
@@ -98,7 +81,7 @@ export function createBot(): Telegraf {
   });
 
   /* -------------------- Text messages -------------------- */
-  bot.on('text', handleTextMessage);
+  bot.on('text', handleTelegramMessage);
 
   bot.catch((err) => {
     logger.error('Telegram bot error', { error: (err as Error).message });
