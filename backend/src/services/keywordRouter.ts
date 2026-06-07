@@ -182,8 +182,8 @@ export async function keywordRouter(
       return { text: result.text };
     }
 
-    // ─── 10. Help ───────────────────────────────────────────────
-    if (lower.includes('help') || lower === '?' || lower.includes('command')) {
+    // ─── 10. Help / Main Menu ───────────────────────────────────
+    if (lower.includes('help') || lower === '?' || lower.includes('command') || lower.includes('main menu') || lower === 'menu' || lower === 'start') {
       const result = cmdHelp();
       return { text: result.text };
     }

@@ -617,6 +617,11 @@ export function cmdHelp(): CommandResult {
       `• \`/status\` — Network status\n` +
       `• \`/price\` — XDC price (coming soon)\n\n` +
 
+      `*Billing Commands:*\n` +
+      `• \`/subscription\` — Your current plan\n` +
+      `• \`/upgrade\` — Upgrade to Pro/Enterprise\n` +
+      `• \`/billing\` — Manage subscription\n\n` +
+
       `*Language Commands:*\n` +
       `• \`/language en\` — English\n` +
       `• \`/language hi\` — Hindi\n` +
