@@ -6,8 +6,8 @@ import { keywordRouter } from './keywordRouter';
 import { messageRouter } from '../../services/messageRouter';
 import { isValidXdcAddress } from '../../utils/network';
 import { ActivityLogModel } from '../../models/ActivityLog';
+import { UserModel } from '../../models/User';
 import { connectWallet, disconnectWallet } from '../../services/connectedWalletService';
-
 /**
  * Unified bot dispatcher.
  *
@@ -56,6 +56,23 @@ export async function dispatch(
     return response;
   }
 
+  // ─── 2b. WhatsApp-style language commands (no slash) ────────
+  const langMatch = trimmed.match(/^(language|lang)\s+(hi|mr|en)$/i);
+  if (langMatch) {
+    const lang = langMatch[2].toLowerCase();
+    logger.info('[dispatch] Language command (WhatsApp style)', { lang });
+    const response = await commandRouter(platform, userId, '/language', [lang]);
+    await ActivityLogModel.create({
+      userId,
+      platform,
+      action: 'language_change',
+      input: trimmed,
+      output: response.text.substring(0, 200),
+      metadata: { language: lang },
+    });
+    return response;
+  }
+
   // ─── 3. Address-only message ────────────────────────────────
   const addrMatch = trimmed.match(/\b(0x[0-9a-fA-F]{40}|xdc[0-9a-fA-F]{40}|txdc[0-9a-fA-F]{40})\b/);
   if (addrMatch && trimmed.replace(addrMatch[0], '').trim().length === 0) {
@@ -99,13 +116,19 @@ export async function dispatch(
 
   // ─── 5. AI / Natural language fallback ──────────────────────
   logger.info('[dispatch] Falling back to AI routing');
-  const aiResult = await messageRouter(trimmed, userId);
+
+  // Get user language preference
+  const user = await UserModel.findOne({ telegramId: Number(userId) });
+  const userLang = user?.preferredLanguage;
+
+  const aiResult = await messageRouter(trimmed, userId, userLang);
   await ActivityLogModel.create({
     userId,
     platform,
     action: 'ai_query',
     input: trimmed,
     output: aiResult.text.substring(0, 200),
+    metadata: { language: aiResult.language },
   });
   return { text: aiResult.text, parseMode: 'markdown' };
 }

@@ -3,6 +3,7 @@ import { keywordRouter } from './keywordRouter';
 
 export interface RouterResponse {
   text: string;
+  language?: string;
 }
 
 /**
@@ -14,14 +15,21 @@ export interface RouterResponse {
  *
  * Strategy: Try AI parsing first (natural language), fall back to
  * keyword router if AI fails or is unavailable.
+ * 
+ * Language Flow:
+ *   1. Detect language from message
+ *   2. Parse query with language context
+ *   3. Execute query
+ *   4. Return response with language for translation
  */
 export async function messageRouter(
   message: string,
-  userId: string
+  userId: string,
+  userPreferredLanguage?: string
 ): Promise<RouterResponse> {
   const trimmedMessage = message.trim();
 
-  logger.info('Routing message', { userId, message: trimmedMessage });
+  logger.info('Routing message', { userId, message: trimmedMessage, userPreferredLanguage });
 
   // ─── AI routing (primary) ───────────────────────────────────
   try {
@@ -31,15 +39,16 @@ export async function messageRouter(
     const addressMatch = trimmedMessage.match(/\b(xdc[0-9a-fA-F]{40}|txdc[0-9a-fA-F]{40}|0x[0-9a-fA-F]{40})\b/);
     const detectedNetwork = addressMatch ? detectNetwork(addressMatch[0]) : 'mainnet';
 
-    const parsed = await parseQuery(trimmedMessage);
+    // Parse with language detection
+    const parsed = await parseQuery(trimmedMessage, userPreferredLanguage);
 
     // If AI parsed successfully with a known action, execute it
     if (parsed.action !== 'unknown') {
       parsed.network = parsed.network || detectedNetwork;
 
       const result = await executeQuery(parsed);
-      logger.info('[messageRouter] AI routing success', { action: parsed.action });
-      return { text: result.text };
+      logger.info('[messageRouter] AI routing success', { action: parsed.action, language: parsed.language });
+      return { text: result.text, language: parsed.language };
     }
 
     // Parsed as unknown — fall through to keyword router
@@ -49,5 +58,6 @@ export async function messageRouter(
   }
 
   // ─── Keyword-based routing (fallback) ───────────────────────
-  return keywordRouter(trimmedMessage, userId);
+  const keywordResult = await keywordRouter(trimmedMessage, userId);
+  return { ...keywordResult, language: userPreferredLanguage || 'en' };
 }
