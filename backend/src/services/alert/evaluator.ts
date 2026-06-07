@@ -59,6 +59,16 @@ async function evaluatePriceThreshold(alert: IAlert): Promise<EvaluationResult> 
       break;
   }
 
+  // Don't re-trigger if already fired for this condition state
+  // Use lastTriggered to prevent spam
+  if (triggered && alert.lastTriggered) {
+    const minutesSinceLastTrigger = (Date.now() - alert.lastTriggered.getTime()) / (60 * 1000);
+    const cooldownMinutes = alert.cooldownMinutes || 60;
+    if (minutesSinceLastTrigger < cooldownMinutes) {
+      return { triggered: false, data: { currentPrice, threshold, operator: condition.operator, note: 'In cooldown' } };
+    }
+  }
+
   return { triggered, data: { currentPrice, threshold, operator: condition.operator } };
 }
 
@@ -179,7 +189,7 @@ async function evaluateGasSpike(alert: IAlert): Promise<EvaluationResult> {
 
   const network = condition.network || 'mainnet';
   const gas = await getGasPrice(network);
-  const currentGas = parseFloat(gas.gasPrice);
+  const currentGas = parseFloat(gas.proposeGasPrice || gas.safeGasPrice || '0');
   const threshold = condition.value;
 
   let triggered = false;
@@ -193,6 +203,15 @@ async function evaluateGasSpike(alert: IAlert): Promise<EvaluationResult> {
     case 'equals':
       triggered = Math.abs(currentGas - threshold) < 1;
       break;
+  }
+
+  // Cooldown check
+  if (triggered && alert.lastTriggered) {
+    const minutesSinceLastTrigger = (Date.now() - alert.lastTriggered.getTime()) / (60 * 1000);
+    const cooldownMinutes = alert.cooldownMinutes || 60;
+    if (minutesSinceLastTrigger < cooldownMinutes) {
+      return { triggered: false, data: { gasPrice: currentGas, threshold, operator: condition.operator, note: 'In cooldown' } };
+    }
   }
 
   return { triggered, data: { gasPrice: currentGas, threshold, operator: condition.operator } };
