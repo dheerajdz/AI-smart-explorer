@@ -181,8 +181,19 @@ export async function handleAddressOnly(
     return { text: '❌ Invalid XDC address. Please check and try again.' };
   }
 
-  const connectResult = await connectWallet(userId, platform, address);
-  const balanceResult = await cmdBalance(address);
+  // Check for conversation state (WhatsApp network selection)
+  let network: 'mainnet' | 'testnet' | undefined;
+  if (platform === 'whatsapp') {
+    const { ConversationStateService } = await import('../../services/conversation/ConversationState');
+    const state = await ConversationStateService.getState(parseInt(userId) || 0);
+    if (state && state.step === 'enter_wallet_address') {
+      network = state.network;
+      await ConversationStateService.clearState(parseInt(userId) || 0);
+    }
+  }
+
+  const connectResult = await connectWallet(userId, platform, address, network);
+  const balanceResult = await cmdBalance(address, network);
 
   await ActivityLogModel.create({
     userId,
@@ -190,7 +201,7 @@ export async function handleAddressOnly(
     action: connectResult.success ? 'wallet_connect' : 'wallet_connect_failed',
     input: address,
     output: connectResult.message.substring(0, 200),
-    metadata: { address, success: connectResult.success },
+    metadata: { address, success: connectResult.success, network },
   });
 
   return {

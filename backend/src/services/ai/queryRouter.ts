@@ -137,6 +137,19 @@ export async function executeQuery(
       result = await handleDeleteAlert(parsed);
       break;
 
+    // ── Portfolio ────────────────────────────────────────────
+    case QueryAction.PORTFOLIO_SUMMARY:
+      result = await handlePortfolioSummary(parsed);
+      break;
+
+    case QueryAction.ADD_PORTFOLIO_WALLET:
+      result = await handleAddPortfolioWallet(parsed);
+      break;
+
+    case QueryAction.REMOVE_PORTFOLIO_WALLET:
+      result = await handleRemovePortfolioWallet(parsed);
+      break;
+
     // ── Language ─────────────────────────────────────────────
     case QueryAction.SET_LANGUAGE:
       result = await handleSetLanguage(parsed);
@@ -664,6 +677,98 @@ async function handleDeleteAlert(parsed: ParsedQuery): Promise<QueryResult> {
   } catch (err) {
     logger.error('[queryRouter] deleteAlert failed', { error: err });
     return { text: '❌ Failed to delete alert. Please try again later.' };
+  }
+}
+
+// ─── Portfolio Handlers ─────────────────────────────────────
+
+async function handlePortfolioSummary(parsed: ParsedQuery): Promise<QueryResult> {
+  const { userId, platform } = parsed;
+
+  if (!userId || !platform) {
+    return { text: '❌ Unable to fetch portfolio. Please try again.' };
+  }
+
+  try {
+    const { getPortfolioSummary } = await import('../portfolioService');
+    const portfolio = await getPortfolioSummary(userId, platform);
+
+    if (portfolio.totalWallets === 0) {
+      return {
+        text:
+          `📊 *Portfolio*\n\n` +
+          `No wallets in your portfolio yet.\n\n` +
+          `Add one with:\n` +
+          `• "Add wallet xdc123... to portfolio"\n` +
+          `• "Track wallet 0xabc..."`,
+      };
+    }
+
+    let text =
+      `📊 *Portfolio Overview*\n\n` +
+      `Wallets: **${portfolio.totalWallets}**\n` +
+      `Total Balance: **${portfolio.totalBalanceXDC} XDC** (~$${portfolio.totalBalanceUSD})\n` +
+      `Last Updated: ${portfolio.lastUpdated.toLocaleString()}\n\n`;
+
+    portfolio.wallets.forEach((w, i) => {
+      const label = w.label ? ` (${w.label})` : '';
+      text += `${i + 1}. \`${w.address.slice(0, 16)}...\`${label}\n`;
+      text += `   ${w.network === 'testnet' ? '🧪' : '🌐'} ${w.balanceXDC} XDC | ${w.txCount} txs\n`;
+    });
+
+    return { text, rawData: portfolio };
+  } catch (err) {
+    logger.error('[queryRouter] handlePortfolioSummary failed', { userId, platform, error: err });
+    return { text: '❌ Failed to fetch portfolio. Please try again later.' };
+  }
+}
+
+async function handleAddPortfolioWallet(parsed: ParsedQuery): Promise<QueryResult> {
+  const { userId, platform, address, network } = parsed;
+
+  if (!userId || !platform) {
+    return { text: '❌ Unable to add wallet. Please try again.' };
+  }
+
+  const walletAddress = address || parsed.wallet || '';
+  if (!walletAddress) {
+    return { text: '❌ Please provide a wallet address.\n\nExample: "Add wallet xdc123... to portfolio"' };
+  }
+
+  try {
+    const { addPortfolioWallet } = await import('../portfolioService');
+    const result = await addPortfolioWallet(
+      userId,
+      platform,
+      walletAddress,
+      network || 'mainnet'
+    );
+    return { text: result.message };
+  } catch (err) {
+    logger.error('[queryRouter] handleAddPortfolioWallet failed', { userId, address, error: err });
+    return { text: '❌ Failed to add wallet to portfolio.' };
+  }
+}
+
+async function handleRemovePortfolioWallet(parsed: ParsedQuery): Promise<QueryResult> {
+  const { userId, platform, address } = parsed;
+
+  if (!userId || !platform) {
+    return { text: '❌ Unable to remove wallet. Please try again.' };
+  }
+
+  const walletAddress = address || parsed.wallet || '';
+  if (!walletAddress) {
+    return { text: '❌ Please provide a wallet address.\n\nExample: "Remove wallet xdc123... from portfolio"' };
+  }
+
+  try {
+    const { removePortfolioWallet } = await import('../portfolioService');
+    const result = await removePortfolioWallet(userId, platform, walletAddress);
+    return { text: result.message };
+  } catch (err) {
+    logger.error('[queryRouter] handleRemovePortfolioWallet failed', { userId, address, error: err });
+    return { text: '❌ Failed to remove wallet from portfolio.' };
   }
 }
 

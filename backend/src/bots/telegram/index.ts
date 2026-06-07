@@ -25,6 +25,7 @@ import {
   handleMenuBack,
   handleSettingsNotifications,
   handleMenuAlerts,
+  handleMenuPortfolio,
   handleAlertCreate,
   handleSettingsLanguage,
   handleLanguageSelection,
@@ -56,6 +57,7 @@ export function createBot(): Telegraf {
   bot.action('menu_transactions', handleMenuTransactions);
   bot.action('menu_track', handleMenuTrack);
   bot.action('menu_alerts', handleMenuAlerts);
+  bot.action('menu_portfolio', handleMenuPortfolio);
   bot.action('menu_ask_ai', handleMenuAskAI);
   bot.action('menu_settings', handleMenuSettings);
   bot.action('menu_back', handleMenuBack);

@@ -15,6 +15,7 @@ import {
   getGasPrice,
   getBlockByNumber,
   getFailedTransactions,
+  getNetworkStats,
 } from './blockchain';
 import * as walletService from './walletService';
 
@@ -35,7 +36,7 @@ function formatError(context: string, error: unknown): CommandResult {
 
 // ─── 1. Balance ─────────────────────────────────────────────
 
-export async function cmdBalance(address: string): Promise<CommandResult> {
+export async function cmdBalance(address: string, network?: Network): Promise<CommandResult> {
   if (!isValidXdcAddress(address)) {
     return {
       success: false,
@@ -44,16 +45,16 @@ export async function cmdBalance(address: string): Promise<CommandResult> {
   }
 
   try {
-    const network = detectNetwork(address);
-    const data = await getWalletBalance(address, network);
+    const detectedNetwork = network || detectNetwork(address);
+    const data = await getWalletBalance(address, detectedNetwork);
 
     return {
       success: true,
       text:
         `💰 *Wallet Balance*\n\n` +
-        `Network: ${network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
+        `Network: ${detectedNetwork === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
         `Address: \`${data.address}\`\n` +
-        `Balance: **${data.balanceXDC} XDC**\n\n` +
+        `Balance: **${data.balanceXDC} ${detectedNetwork === 'testnet' ? 'TXDC' : 'XDC'}**\n\n` +
         `[View on Explorer](${data.explorerUrl})`,
       rawData: data,
     };
@@ -84,11 +85,14 @@ export async function cmdTransactions(address: string, limit: number = 5): Promi
       `Showing: ${data.transactions.length} of ${data.totalCount}\n\n`;
 
     if (data.transactions.length > 0) {
-      data.transactions.forEach((tx, i) => {
+      data.transactions.slice(0, 10).forEach((tx, i) => {
         const value = Number(tx.value) / 1e18;
         const status = tx.status === 'success' ? '✅' : tx.status === 'failed' ? '❌' : '⏳';
-        text += `${i + 1}. ${status} \`${tx.hash.slice(0, 20)}...\` — ${value} XDC\n`;
+        text += `${i + 1}. ${status} \`${tx.hash.slice(0, 16)}...\` — ${value.toFixed(4)} XDC\n`;
       });
+      if (data.transactions.length > 10) {
+        text += `\n...and ${data.transactions.length - 10} more\n`;
+      }
       text += `\n[View on Explorer](${explorerUrl})`;
     } else {
       text += 'No transactions found.';
@@ -345,17 +349,37 @@ export function cmdPrice(): CommandResult {
 
 export async function cmdStatus(): Promise<CommandResult> {
   try {
-    const data = await getGasPrice('mainnet');
-    return {
-      success: true,
-      text:
-        `🌐 *Network Status*\n\n` +
-        `Network: XDC Mainnet\n` +
-        `Gas Safe: **${data.safeGasPrice} Gwei**\n` +
-        `Gas Standard: **${data.proposeGasPrice} Gwei**\n` +
-        `Gas Fast: **${data.fastGasPrice} Gwei**\n\n` +
-        `All systems operational ✅`,
-    };
+    // Default to mainnet, but could accept network param in future
+    const [gasData, stats] = await Promise.all([
+      getGasPrice('mainnet'),
+      getNetworkStats('mainnet'),
+    ]);
+    
+    let text =
+      `🌐 *XDC Network Overview*\n\n` +
+      `📊 *Network Stats*\n` +
+      `Latest Block: **${stats.latestBlock}**\n` +
+      `Total Blocks: **${stats.totalBlocks}**\n` +
+      `Block TXs: **${stats.totalTransactions}**\n` +
+      `XDC Price: **$${stats.xdcPrice}**\n\n`;
+    
+    if (stats.latestTransactions.length > 0) {
+      text += `📄 *Latest Transactions*\n`;
+      stats.latestTransactions.forEach((tx, i) => {
+        text += `${i + 1}. \`${tx.hash.slice(0, 16)}...\` — ${tx.value} XDC\n`;
+      });
+      text += `\n`;
+    }
+    
+    text +=
+      `⛽ *Gas Prices*\n` +
+      `Safe: **${gasData.safeGasPrice} Gwei**\n` +
+      `Standard: **${gasData.proposeGasPrice} Gwei**\n` +
+      `Fast: **${gasData.fastGasPrice} Gwei**\n\n` +
+      `All systems operational ✅\n\n` +
+      `💡 *Ready to explore?* Send your wallet address to connect.`;
+
+    return { success: true, text };
   } catch (err) {
     return formatError('cmdStatus', err);
   }

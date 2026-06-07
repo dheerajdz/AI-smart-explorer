@@ -99,17 +99,42 @@ export async function handleNetworkSelection(ctx: Context): Promise<void> {
   const callbackData = (ctx as any).callbackQuery?.data;
   const network = callbackData === 'connect_network_testnet' ? 'testnet' : 'mainnet';
 
-  await ConversationStateService.setState({
-    step: 'enter_wallet_address',
-    telegramId,
-    network,
-  });
+  if (network === 'mainnet') {
+    // Show network stats before connecting
+    const { cmdStatus } = await import('../../services/blockchainCommands');
+    const result = await cmdStatus();
+    await ctx.reply(result.text, { parse_mode: 'Markdown' });
+    
+    // Then ask for wallet
+    await ConversationStateService.setState({
+      step: 'enter_wallet_address',
+      telegramId,
+      network,
+    });
+    
+    await ctx.reply(
+      `🌐 *XDC Mainnet* selected.\n\nPlease enter your wallet address:`,
+      Markup.removeKeyboard()
+    );
+  } else {
+    // Testnet: show testnet stats before connecting
+    const { cmdStatus } = await import('../../services/blockchainCommands');
+    const result = await cmdStatus();
+    await ctx.reply(result.text, { parse_mode: 'Markdown' });
+    
+    await ConversationStateService.setState({
+      step: 'enter_wallet_address',
+      telegramId,
+      network,
+    });
 
-  const label = network === 'testnet' ? '🧪 XDC Testnet' : '🌐 XDC Mainnet';
-  await ctx.reply(
-    `${label} selected.\n\nPlease enter your wallet address:`,
-    Markup.removeKeyboard()
-  );
+    const label = '🧪 XDC Testnet';
+    await ctx.reply(
+      `${label} selected.\n\nPlease enter your wallet address:`,
+      Markup.removeKeyboard()
+    );
+  }
+  
   await ctx.answerCbQuery();
 }
 
@@ -395,6 +420,48 @@ export async function handleMenuAlerts(ctx: Context): Promise<void> {
   ]);
 
   await ctx.reply('🚨 *My Alerts*', { parse_mode: 'Markdown', ...keyboard });
+  await ctx.answerCbQuery();
+}
+
+export async function handleMenuPortfolio(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  try {
+    const { getPortfolioSummary } = await import('../../services/portfolioService');
+    const portfolio = await getPortfolioSummary(String(telegramId), 'telegram');
+
+    if (portfolio.totalWallets === 0) {
+      await ctx.reply(
+        '📊 *Portfolio*\n\n' +
+        'No wallets in your portfolio yet.\n\n' +
+        'Add one with:\n' +
+        '• "Add wallet xdc123... to portfolio"\n' +
+        '• "Track wallet 0xabc..."',
+        { parse_mode: 'Markdown' }
+      );
+      await ctx.answerCbQuery();
+      return;
+    }
+
+    let text =
+      `📊 *Portfolio Overview*\n\n` +
+      `Wallets: **${portfolio.totalWallets}**\n` +
+      `Total Balance: **${portfolio.totalBalanceXDC} XDC** (~$${portfolio.totalBalanceUSD})\n` +
+      `Last Updated: ${portfolio.lastUpdated.toLocaleString()}\n\n`;
+
+    portfolio.wallets.forEach((w, i) => {
+      const label = w.label ? ` (${w.label})` : '';
+      text += `${i + 1}. \`${w.address.slice(0, 16)}...\`${label}\n`;
+      text += `   ${w.network === 'testnet' ? '🧪' : '🌐'} ${w.balanceXDC} XDC | ${w.txCount} txs\n`;
+    });
+
+    await ctx.reply(text, { parse_mode: 'Markdown' });
+  } catch (err) {
+    logger.error('handleMenuPortfolio failed', { error: err });
+    await ctx.reply('❌ Failed to fetch portfolio. Please try again.');
+  }
+
   await ctx.answerCbQuery();
 }
 

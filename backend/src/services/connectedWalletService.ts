@@ -20,7 +20,9 @@ export async function connectWallet(
     return { success: false, message: '❌ Invalid address. Please enter a valid XDC address.' };
   }
 
+  // Use explicitly passed network, or detect from address prefix
   const detectedNetwork = network || detectNetwork(trimmed);
+  logger.info('[ConnectedWalletService] Network selection', { passedNetwork: network, detectedNetwork, address: trimmed });
 
   try {
     // Upsert: disconnect old, connect new

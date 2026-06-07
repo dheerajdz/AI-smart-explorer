@@ -54,5 +54,5 @@ export async function messageRouter(
   }
 
   // ─── Keyword-based routing (fallback) ───────────────────────
-  return keywordRouter(trimmedMessage, userId);
+  return keywordRouter(trimmedMessage, userId, platform);
 }

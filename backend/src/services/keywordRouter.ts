@@ -32,7 +32,8 @@ export interface RouterResponse {
  */
 export async function keywordRouter(
   message: string,
-  userId: string
+  userId: string,
+  platform?: string
 ): Promise<RouterResponse> {
   const trimmed = message.trim();
   const lower = trimmed.toLowerCase();
@@ -41,6 +42,115 @@ export async function keywordRouter(
 
   // ─── Extract address ────────────────────────────────────────
   const addr = extractAddress(trimmed);
+
+  // ─── WhatsApp numbered menu responses ───────────────────────
+  if (platform === 'whatsapp') {
+    // Handle network selection for new users
+    if (trimmed === '1' || trimmed === '1️⃣') {
+      const { ConversationStateService } = await import('./conversation/ConversationState');
+      const { getConnectedWallet } = await import('./connectedWalletService');
+      const wallet = await getConnectedWallet(userId, 'whatsapp');
+      
+      if (!wallet) {
+        // Store network preference for new user
+        await ConversationStateService.setState({
+          step: 'enter_wallet_address',
+          telegramId: parseInt(userId) || 0,
+          network: 'mainnet',
+        });
+        return { text: '🌐 *Mainnet selected*\n\nPlease send your XDC wallet address:\n\nExample: `xdc1234...abcd` or `0x1234...abcd`' };
+      }
+      
+      // Connected user - show balance
+      const prefix = wallet.network === 'testnet' ? 'txdc' : 'xdc';
+      const address = wallet.address.startsWith('0x') ? `${prefix}${wallet.address.slice(2)}` : wallet.address;
+      const result = await cmdBalance(address);
+      return { text: result.text };
+    }
+
+    if (trimmed === '2' || trimmed === '2️⃣') {
+      const { ConversationStateService } = await import('./conversation/ConversationState');
+      const { getConnectedWallet } = await import('./connectedWalletService');
+      const wallet = await getConnectedWallet(userId, 'whatsapp');
+      
+      if (!wallet) {
+        // Store network preference for new user
+        await ConversationStateService.setState({
+          step: 'enter_wallet_address',
+          telegramId: parseInt(userId) || 0,
+          network: 'testnet',
+        });
+        return { text: '🧪 *Testnet selected*\n\nPlease send your XDC wallet address:\n\nExample: `txdc1234...abcd` or `0x1234...abcd`' };
+      }
+      
+      // Connected user - show transactions
+      const prefix = wallet.network === 'testnet' ? 'txdc' : 'xdc';
+      const address = wallet.address.startsWith('0x') ? `${prefix}${wallet.address.slice(2)}` : wallet.address;
+      const result = await cmdTransactions(address, 5);
+      return { text: result.text };
+    }
+
+    // Handle address input when in connect flow
+    if (addr) {
+      const { ConversationStateService } = await import('./conversation/ConversationState');
+      const state = await ConversationStateService.getState(parseInt(userId) || 0);
+      
+      if (state && state.step === 'enter_wallet_address') {
+        const { connectWallet } = await import('./connectedWalletService');
+        const network = state.network || 'mainnet';
+        logger.info('[keywordRouter] Connecting wallet with network', { userId, network, state });
+        const result = await connectWallet(userId, 'whatsapp', addr, network);
+        
+        if (result.success) {
+          await ConversationStateService.clearState(parseInt(userId) || 0);
+          return {
+            text: result.message + '\n\n---\n\n💡 *Tip:* Try:\n• "transactions"\n• "activity"\n• "track this wallet"',
+          };
+        }
+        return { text: result.message };
+      }
+    }
+
+    // Connected user menu (3-6)
+    if (trimmed === '3' || trimmed === '3️⃣') {
+      const { getConnectedWallet } = await import('./connectedWalletService');
+      const wallet = await getConnectedWallet(userId, 'whatsapp');
+      if (!wallet) {
+        return { text: '⚠️ No wallet connected. Reply with:\n1️⃣ Mainnet\n2️⃣ Testnet' };
+      }
+      const prefix = wallet.network === 'testnet' ? 'txdc' : 'xdc';
+      const address = wallet.address.startsWith('0x') ? `${prefix}${wallet.address.slice(2)}` : wallet.address;
+      const result = await cmdWalletActivity(address);
+      return { text: result.text };
+    }
+
+    if (trimmed === '4' || trimmed === '4️⃣') {
+      const result = await cmdGasPrice();
+      return { text: result.text };
+    }
+
+    if (trimmed === '5' || trimmed === '5️⃣') {
+      const { getConnectedWallet } = await import('./connectedWalletService');
+      const wallet = await getConnectedWallet(userId, 'whatsapp');
+      if (!wallet) {
+        return { text: '⚠️ No wallet connected. Reply with:\n1️⃣ Mainnet\n2️⃣ Testnet' };
+      }
+      const prefix = wallet.network === 'testnet' ? 'txdc' : 'xdc';
+      const address = wallet.address.startsWith('0x') ? `${prefix}${wallet.address.slice(2)}` : wallet.address;
+      const result = cmdTrack(address, userId);
+      return { text: result.text };
+    }
+
+    if (trimmed === '6' || trimmed === '6️⃣') {
+      const { disconnectWallet } = await import('./connectedWalletService');
+      const result = await disconnectWallet(userId, 'whatsapp');
+      return {
+        text: result.success
+          ? '✅ *Wallet Disconnected*\n\nYour wallet has been removed.\n\nReply with:\n1️⃣ Mainnet\n2️⃣ Testnet\n\nto connect a new wallet.'
+          : '⚠️ No wallet found to disconnect.',
+      };
+    }
+  }
 
   // ─── 0. Greetings ───────────────────────────────────────────
   if (

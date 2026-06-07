@@ -40,6 +40,11 @@ export enum QueryAction {
   LIST_ALERTS = 'list_alerts',
   DELETE_ALERT = 'delete_alert',
 
+  // ── Portfolio ──────────────────────────────────────────────
+  PORTFOLIO_SUMMARY = 'portfolio_summary',
+  ADD_PORTFOLIO_WALLET = 'add_portfolio_wallet',
+  REMOVE_PORTFOLIO_WALLET = 'remove_portfolio_wallet',
+
   // ── Language & Localization ──────────────────────────────
   SET_LANGUAGE = 'set_language',
 
@@ -116,6 +121,10 @@ export const QUERY_ACTION_DESCRIPTIONS: Record<QueryAction, string> = {
   [QueryAction.CREATE_ALERT]: 'Create a new price or activity alert',
   [QueryAction.LIST_ALERTS]: 'Show your active alerts',
   [QueryAction.DELETE_ALERT]: 'Remove an existing alert',
+
+  [QueryAction.PORTFOLIO_SUMMARY]: 'Show portfolio overview with all wallets',
+  [QueryAction.ADD_PORTFOLIO_WALLET]: 'Add a wallet to your portfolio',
+  [QueryAction.REMOVE_PORTFOLIO_WALLET]: 'Remove a wallet from your portfolio',
 
   [QueryAction.SET_LANGUAGE]: 'Set your preferred language (en/hi/mr)',
 
@@ -203,6 +212,20 @@ export const QUERY_ACTION_EXAMPLES: Record<QueryAction, string[]> = {
   [QueryAction.DELETE_ALERT]: [
     'Delete alert #1',
     'Remove my gas alert',
+  ],
+
+  [QueryAction.PORTFOLIO_SUMMARY]: [
+    'Show my portfolio',
+    'Portfolio overview',
+    'My wallets',
+  ],
+  [QueryAction.ADD_PORTFOLIO_WALLET]: [
+    'Add wallet xdc123... to portfolio',
+    'Track wallet 0xabc...',
+  ],
+  [QueryAction.REMOVE_PORTFOLIO_WALLET]: [
+    'Remove wallet xdc123... from portfolio',
+    'Stop tracking wallet 0xabc...',
   ],
 
   [QueryAction.SET_LANGUAGE]: [

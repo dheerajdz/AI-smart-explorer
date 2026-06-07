@@ -9,6 +9,7 @@ export {
   getBlockByNumber,
   getFailedTransactions,
   getFailedContractDeployments,
+  getNetworkStats,
   type WalletBalanceResponse,
   type TransactionsResponse,
   type WalletActivity,
@@ -18,4 +19,5 @@ export {
   type BlockInfoResponse,
   type Transaction,
   type LargeTransfer,
+  type NetworkStatsResponse,
 } from './xdcscanService';

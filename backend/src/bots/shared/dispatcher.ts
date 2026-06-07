@@ -56,7 +56,21 @@ export async function dispatch(
     return response;
   }
 
-  // ─── 3. Address-only message ────────────────────────────────
+  // ─── 3. Keyword routing (before address detection) ──────────
+  const keywordResult = await keywordRouter(trimmed, userId, platform);
+  if (keywordResult) {
+    logger.info('[dispatch] Keyword match');
+    await ActivityLogModel.create({
+      userId,
+      platform,
+      action: 'keyword',
+      input: trimmed,
+      output: keywordResult.text.substring(0, 200),
+    });
+    return keywordResult;
+  }
+
+  // ─── 4. Address-only message ────────────────────────────────
   const addrMatch = trimmed.match(/\b(0x[0-9a-fA-F]{40}|xdc[0-9a-fA-F]{40}|txdc[0-9a-fA-F]{40})\b/);
   if (addrMatch && trimmed.replace(addrMatch[0], '').trim().length === 0) {
     const address = addrMatch[1];
@@ -81,20 +95,6 @@ export async function dispatch(
       output: 'Invalid address',
     });
     return { text: '❌ Invalid XDC address. Please check and try again.' };
-  }
-
-  // ─── 4. Keyword routing ─────────────────────────────────────
-  const keywordResult = await keywordRouter(platform, userId, trimmed);
-  if (keywordResult) {
-    logger.info('[dispatch] Keyword match');
-    await ActivityLogModel.create({
-      userId,
-      platform,
-      action: 'keyword',
-      input: trimmed,
-      output: keywordResult.text.substring(0, 200),
-    });
-    return keywordResult;
   }
 
   // ─── 5. AI / Natural language fallback ──────────────────────
