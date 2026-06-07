@@ -57,7 +57,7 @@ export async function resumeAlert(alertId: string, userId: string): Promise<bool
 }
 
 export async function getActiveAlerts(): Promise<IAlert[]> {
-  return AlertModel.find({ status: 'active', isActive: true }).lean();
+  return AlertModel.find({ status: 'active', isActive: true });
 }
 
 export async function markAlertTriggered(alertId: string): Promise<void> {

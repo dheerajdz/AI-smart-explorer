@@ -26,7 +26,7 @@ export async function pollAlerts(): Promise<void> {
       // Check cooldown
       const cooledDown = await checkAlertCooldown(alert);
       if (!cooledDown) {
-        logger.debug('[alertPoller] Alert in cooldown', { alertId: alert._id });
+        logger.debug('[alertPoller] Alert in cooldown', { alertId: alert._id, lastTriggered: alert.lastTriggered, cooldownMinutes: alert.cooldownMinutes });
         continue;
       }
 
