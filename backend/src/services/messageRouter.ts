@@ -1,5 +1,6 @@
 import { logger } from '../utils/logger';
 import { commandHandler } from './commandHandler';
+import * as reputationService from './reputationService';
 
 export interface RouterResponse {
   text: string;
@@ -22,6 +23,8 @@ export async function messageRouter(
     return commandHandler(command, args, userId, telegramId);
   }
 
-  // Non-command messages go to AI in the future
+  // Non-command messages = AI queries
+  reputationService.addPoints(userId, 2, 'totalQueries');
+
   return { text: 'AI processing coming soon 🚀' };
 }

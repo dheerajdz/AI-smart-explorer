@@ -2,6 +2,12 @@ import { logger } from '../utils/logger';
 import { redis } from '../database';
 import * as walletService from './walletService';
 import * as planService from './planService';
+import * as reputationService from './reputationService';
+import {
+  analyzeWalletReputation,
+  formatReputationMessage,
+  isValidAddress,
+} from './blockchain/walletReputation';
 import { PlanTier } from '../types';
 import { env } from '../config/env';
 
@@ -44,6 +50,12 @@ export async function commandHandler(
     case '/admin':
       return await handleAdmin(args, telegramId);
 
+    case '/rep':
+      return await handleUserReputation(userId, telegramId);
+
+    case '/reputation':
+      return await handleWalletReputation(args);
+
     default:
       return { text: 'Unknown command.\n\nType /help to view available commands.' };
   }
@@ -60,6 +72,9 @@ function handleHelp(): CommandResponse {
       `💎 *Plans*\n` +
       `• /plans — Compare plans\n` +
       `• /myplan — Your current plan\n\n` +
+      `🏆 *Reputation*\n` +
+      `• /rep — Your activity reputation\n` +
+      `• /reputation <wallet> — Analyze wallet on-chain trust\n\n` +
       `⚙️ *System*\n` +
       `• /status — Bot health\n` +
       `• /help — This menu`,
@@ -103,6 +118,8 @@ function handleTrack(userId: string, args: string[]): CommandResponse {
     return { text: `⚠️ Wallet already tracked\n\nWallet:\n${result.wallet}` };
   }
 
+  reputationService.addPoints(userId, 10, 'walletsTracked');
+
   return { text: `✅ Wallet tracking enabled\n\nWallet:\n${result.wallet}` };
 }
 
@@ -133,6 +150,9 @@ function handleList(userId: string): CommandResponse {
   }
 
   const list = wallets.map((wallet, index) => `${index + 1}. ${wallet}`).join('\n');
+
+  reputationService.addPoints(userId, 1, 'commandsUsed');
+
   return { text: `Tracked Wallets\n\n${list}` };
 }
 
@@ -168,6 +188,8 @@ async function handleMyPlan(telegramId?: number): Promise<CommandResponse> {
   if (!plan) {
     return { text: '❌ No plan found. Try /start to register.' };
   }
+
+  reputationService.addPoints(telegramId.toString(), 1, 'commandsUsed');
 
   return {
     text:
@@ -207,5 +229,63 @@ async function handleAdmin(args: string[], adminTelegramId?: number): Promise<Co
 
   return {
     text: `✅ Plan updated\n\nUser: ${targetId}\nNew Plan: ${planService.planDisplay(newPlan)}`,
+  };
+}
+
+async function handleWalletReputation(args: string[]): Promise<CommandResponse> {
+  const wallet = args.join(' ').trim();
+
+  if (!wallet) {
+    return {
+      text:
+        '💎 *Wallet Reputation*\n\n' +
+        'Analyze any XDC wallet\'s on-chain history.\n\n' +
+        '*Usage:*\n' +
+        '`/reputation xdcA7A0...2020`\n' +
+        '`/reputation 0xA7A0...2020`\n\n' +
+        'Returns:\n' +
+        '• Trust score (0-100)\n' +
+        '• Tier (Unverified → Legendary)\n' +
+        '• Account age, tx count, balance\n' +
+        '• Activity frequency, counterparties',
+    };
+  }
+
+  // Validate XDC address format
+  if (!isValidAddress(wallet)) {
+    return {
+      text: '❌ Invalid wallet address.\n\nUse format:\n• xdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020\n• 0xA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020',
+    };
+  }
+
+  try {
+    const data = await analyzeWalletReputation(wallet);
+    return { text: formatReputationMessage(data) };
+  } catch (error) {
+    logger.error('Wallet reputation analysis failed', { wallet, error: (error as Error).message });
+    return {
+      text: '❌ Failed to analyze wallet.\n\nPossible reasons:\n• Invalid address\n• Network unavailable\n• No transaction history\n\nTry again later.',
+    };
+  }
+}
+
+async function handleUserReputation(userId: string, telegramId?: number): Promise<CommandResponse> {
+  const lookupId = telegramId?.toString() || userId;
+  const rep = await reputationService.getReputation(lookupId);
+
+  if (!rep) {
+    return { text: '❌ No reputation found. Try /start to register.' };
+  }
+
+  return {
+    text:
+      `🏆 *Your Reputation*\n\n` +
+      `Tier: ${reputationService.tierDisplay(rep.tier)}\n` +
+      `Score: ${rep.score} pts\n\n` +
+      `📊 *Stats*\n` +
+      `• Queries: ${rep.totalQueries}\n` +
+      `• Wallets: ${rep.walletsTracked}\n` +
+      `• Commands: ${rep.commandsUsed}\n\n` +
+      `💡 Keep exploring to rank up!`,
   };
 }

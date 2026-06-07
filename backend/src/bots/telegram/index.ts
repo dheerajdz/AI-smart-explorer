@@ -71,6 +71,11 @@ export function createBot(): Telegraf {
   bot.command('list', (ctx) => handleCommand(ctx, '/list'));
   bot.command('plans', (ctx) => handleCommand(ctx, '/plans'));
   bot.command('myplan', (ctx) => handleCommand(ctx, '/myplan'));
+  bot.command('rep', (ctx) => handleCommand(ctx, '/rep'));
+  bot.command('reputation', (ctx) => {
+    const messageText = ctx.message?.text ?? '/reputation';
+    return handleCommand(ctx, messageText);
+  });
   bot.command('admin', (ctx) => {
     const messageText = ctx.message?.text ?? '/admin';
     return handleCommand(ctx, messageText);

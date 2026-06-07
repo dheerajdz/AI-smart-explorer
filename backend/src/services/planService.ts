@@ -1,6 +1,7 @@
 import { logger } from '../utils/logger';
 import { User } from '../models';
 import { PlanTier } from '../types';
+import { createReputation } from './reputationService';
 
 export async function findOrCreateUser(
   telegramId: number,
@@ -18,6 +19,9 @@ export async function findOrCreateUser(
       planAssignedAt: new Date(),
     });
     logger.info('New user created with FREE plan', { telegramId });
+
+    await createReputation(user._id.toString());
+
     return { userId: user._id.toString(), plan: user.plan, isNew: true };
   }
 
