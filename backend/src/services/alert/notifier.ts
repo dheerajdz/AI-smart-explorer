@@ -1,6 +1,6 @@
 import { IAlert } from '../../models/Alert';
 import { logger } from '../../utils/logger';
-import { sendTelegramNotification } from '../notification/telegramNotify';
+import { getBotInstance } from '../notification/telegramNotify';
 import { sendWhatsAppMessage } from '../../bots/whatsapp/sendMessage';
 import { formatAlertMessage } from './alertService';
 
@@ -10,9 +10,15 @@ export async function sendAlertNotification(alert: IAlert, data: any): Promise<v
 
   try {
     switch (platform) {
-      case 'telegram':
-        await sendTelegramNotification(chatId, message);
+      case 'telegram': {
+        const bot = getBotInstance();
+        if (bot) {
+          await bot.telegram.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+        } else {
+          logger.warn('[alertNotifier] Telegram bot not available');
+        }
         break;
+      }
 
       case 'whatsapp':
         await sendWhatsAppMessage(chatId, message);
