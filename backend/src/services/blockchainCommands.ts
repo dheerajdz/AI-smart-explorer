@@ -19,6 +19,7 @@ import {
 } from './blockchain';
 import * as walletService from './walletService';
 import { getReputation, getLeaderboard, getTier, getTierEmoji } from './reputation/reputationService';
+import { getTranslationByLang, TranslationKeys } from '../i18n';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -30,18 +31,21 @@ export interface CommandResult {
 
 // ─── Helper ─────────────────────────────────────────────────
 
-function formatError(context: string, error: unknown): CommandResult {
+function formatError(context: string, error: unknown, lang: string = 'en'): CommandResult {
   logger.error(`[blockchainCommands] ${context} failed`, { error });
-  return { success: false, text: '❌ Failed to fetch data. Please try again later.' };
+  const t = getTranslationByLang(lang);
+  return { success: false, text: t.err_server_error };
 }
 
 // ─── 1. Balance ─────────────────────────────────────────────
 
-export async function cmdBalance(address: string, network?: Network): Promise<CommandResult> {
+export async function cmdBalance(address: string, network?: Network, lang: string = 'en'): Promise<CommandResult> {
+  const t = getTranslationByLang(lang);
+  
   if (!isValidXdcAddress(address)) {
     return {
       success: false,
-      text: '❌ Invalid address. Must start with `xdc`, `txdc`, or `0x` (42 chars).',
+      text: t.err_invalid_address,
     };
   }
 
@@ -52,7 +56,7 @@ export async function cmdBalance(address: string, network?: Network): Promise<Co
     return {
       success: true,
       text:
-        `💰 *Wallet Balance*\n\n` +
+        `💰 *${t.cmd_balance_title}*\n\n` +
         `Network: ${detectedNetwork === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
         `Address: \`${data.address}\`\n` +
         `Balance: **${data.balanceXDC} ${detectedNetwork === 'testnet' ? 'TXDC' : 'XDC'}**\n\n` +
@@ -61,7 +65,7 @@ export async function cmdBalance(address: string, network?: Network): Promise<Co
       rawData: data,
     };
   } catch (err) {
-    return formatError('cmdBalance', err);
+    return formatError('cmdBalance', err, lang);
   }
 }
 
@@ -200,13 +204,14 @@ export function cmdList(userId: string): CommandResult {
 
 // ─── 6. Gas Price ───────────────────────────────────────────
 
-export async function cmdGasPrice(network: Network = 'mainnet'): Promise<CommandResult> {
+export async function cmdGasPrice(network: Network = 'mainnet', lang: string = 'en'): Promise<CommandResult> {
+  const t = getTranslationByLang(lang);
   try {
     const data = await getGasPrice(network);
     return {
       success: true,
       text:
-        `⛽ *Gas Price*\n\n` +
+        `⛽ *${t.cmd_gas_title}*\n\n` +
         `Network: ${network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
         `Safe: **${data.safeGasPrice} Gwei**\n` +
         `Standard: **${data.proposeGasPrice} Gwei**\n` +
@@ -214,7 +219,7 @@ export async function cmdGasPrice(network: Network = 'mainnet'): Promise<Command
       rawData: data,
     };
   } catch (err) {
-    return formatError('cmdGasPrice', err);
+    return formatError('cmdGasPrice', err, lang);
   }
 }
 
@@ -354,11 +359,12 @@ export async function cmdLargeTransfers(address: string, thresholdXDC: number = 
 
 // ─── 11. Price (Stub) ───────────────────────────────────────
 
-export function cmdPrice(): CommandResult {
+export function cmdPrice(lang: string = 'en'): CommandResult {
+  const t = getTranslationByLang(lang);
   return {
     success: true,
     text:
-      '📈 *XDC Price*\n\n' +
+      `📈 *${t.cmd_price_title}*\n\n` +
       'Current price data is not yet available.\n\n' +
       'Try these instead:\n' +
       '• `/balance <address>`\n' +
@@ -368,7 +374,8 @@ export function cmdPrice(): CommandResult {
 
 // ─── 12. Status ─────────────────────────────────────────────
 
-export async function cmdStatus(): Promise<CommandResult> {
+export async function cmdStatus(lang: string = 'en'): Promise<CommandResult> {
+  const t = getTranslationByLang(lang);
   try {
     // Default to mainnet, but could accept network param in future
     const [gasData, stats] = await Promise.all([
@@ -377,7 +384,7 @@ export async function cmdStatus(): Promise<CommandResult> {
     ]);
     
     let text =
-      `🌐 *XDC Network Overview*\n\n` +
+      `🌐 *${t.cmd_status_title}*\n\n` +
       `📊 *Network Stats*\n` +
       `Latest Block: **${stats.latestBlock}**\n` +
       `Total Blocks: **${stats.totalBlocks}**\n` +
@@ -393,7 +400,7 @@ export async function cmdStatus(): Promise<CommandResult> {
     }
     
     text +=
-      `⛽ *Gas Prices*\n` +
+      `⛽ *${t.cmd_gas_title}*\n` +
       `Safe: **${gasData.safeGasPrice} Gwei**\n` +
       `Standard: **${gasData.proposeGasPrice} Gwei**\n` +
       `Fast: **${gasData.fastGasPrice} Gwei**\n\n` +
@@ -402,7 +409,7 @@ export async function cmdStatus(): Promise<CommandResult> {
 
     return { success: true, text };
   } catch (err) {
-    return formatError('cmdStatus', err);
+    return formatError('cmdStatus', err, lang);
   }
 }
 
