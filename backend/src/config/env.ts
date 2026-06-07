@@ -17,6 +17,13 @@ const envSchema = z.object({
   OPENROUTER_API_KEY: z.string().optional().default(''),
   OPENROUTER_MODEL: z.string().optional().default('meta-llama/llama-3.1-8b-instruct:free'),
   
+  // ── Stripe Billing ──────────────────────────────────────────
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  STRIPE_PRO_PRICE_ID: z.string().optional(),
+  STRIPE_ENTERPRISE_PRICE_ID: z.string().optional(),
+  
   // ── Blockchain APIs ─────────────────────────────────────────
   XDCSCAN_API: z.string().url().optional().default('https://api.xdcscan.io/api'),
   XDCSCAN_TESTNET_API: z.string().url().optional().default('https://erpc.apothem.network'),
