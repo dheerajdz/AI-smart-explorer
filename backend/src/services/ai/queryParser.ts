@@ -6,7 +6,7 @@
 // ============================================================
 
 import { logger } from '../../utils/logger';
-import { askKimi } from './kimiService';
+import { askGroq } from './groqService';
 import { QUERY_PARSER_PROMPT } from './promptTemplates';
 import { QueryAction, VALID_QUERY_ACTIONS, ParsedQuery } from '../../types';
 
@@ -19,8 +19,8 @@ export { QueryAction, ParsedQuery } from '../../types';
  * Parse a raw user message into a structured blockchain query.
  *
  * Flow:
- *   1. Prepend QUERY_PARSER_PROMPT (examples + rules for Kimi)
- *   2. Send to Kimi API via askKimi()
+ *   1. Prepend QUERY_PARSER_PROMPT (examples + rules for LLM)
+ *   2. Send to Groq API via askGroq()
  *   3. Strip markdown code blocks if present
  *   4. Parse JSON
  *   5. Validate the `action` field against VALID_QUERY_ACTIONS
@@ -38,17 +38,17 @@ export async function parseQuery(userMessage: string): Promise<ParsedQuery> {
   // 1. Build the full prompt
   const fullPrompt = `${QUERY_PARSER_PROMPT}\n"""\n${userMessage}\n"""`;
 
-  // 2. Call Kimi
+  // 2. Call Groq
   let rawResponse: string;
   try {
-    rawResponse = await askKimi(fullPrompt);
+    rawResponse = await askGroq(fullPrompt);
   } catch (err) {
-    logger.error('[queryParser] Kimi API call failed', { error: err, userMessage });
+    logger.error('[queryParser] Groq API call failed', { error: err, userMessage });
     return fallback(userMessage);
   }
 
   // 3. Clean the response
-  const cleaned = cleanKimiResponse(rawResponse);
+  const cleaned = cleanGroqResponse(rawResponse);
 
   // 4. Parse JSON
   let parsed: Record<string, any>;
@@ -65,7 +65,7 @@ export async function parseQuery(userMessage: string): Promise<ParsedQuery> {
 
   // 5. Validate action
   if (!isValidAction(parsed.action)) {
-    logger.warn('[queryParser] Unknown action from Kimi', {
+    logger.warn('[queryParser] Unknown action from Groq', {
       action: parsed.action,
       parsed,
     });
@@ -85,10 +85,10 @@ export async function parseQuery(userMessage: string): Promise<ParsedQuery> {
 // ─── Helpers ────────────────────────────────────────────────
 
 /**
- * Kimi sometimes wraps JSON in markdown code blocks.
+ * Groq sometimes wraps JSON in markdown code blocks.
  * This strips those wrappers and trims whitespace.
  */
-function cleanKimiResponse(raw: string): string {
+function cleanGroqResponse(raw: string): string {
   return raw
     .replace(/```json\s*/gi, '')
     .replace(/```\s*/gi, '')
@@ -96,7 +96,7 @@ function cleanKimiResponse(raw: string): string {
 }
 
 /**
- * Check if the action returned by Kimi is in our known list.
+ * Check if the action returned by Groq is in our known list.
  */
 function isValidAction(action: any): action is QueryAction {
   return typeof action === 'string' && VALID_QUERY_ACTIONS.includes(action as QueryAction);

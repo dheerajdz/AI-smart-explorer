@@ -1,4 +1,5 @@
 export { askKimi, formatResponse } from './kimiService';
+export { askGroq, formatResponse as formatGroqResponse } from './groqService';
 export {
   QUERY_PARSER_PROMPT,
   ALERT_CONDITION_PARSER_PROMPT,

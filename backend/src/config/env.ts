@@ -17,6 +17,10 @@ const envSchema = z.object({
   OPENROUTER_API_KEY: z.string().optional().default(''),
   OPENROUTER_MODEL: z.string().optional().default('meta-llama/llama-3.1-8b-instruct:free'),
   
+  // ── Groq AI ──────────────────────────────────────────────────
+  GROQ_API_KEY: z.string().optional().default(''),
+  GROQ_MODEL: z.string().optional().default('llama-3.3-70b-versatile'),
+  
   // ── Stripe Billing ──────────────────────────────────────────
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
