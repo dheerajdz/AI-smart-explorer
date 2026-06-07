@@ -97,7 +97,12 @@ export async function handleBillingCheckout(ctx: Context): Promise<void> {
   if (!telegramId) return;
 
   const match = ctx.match;
-  const tier = typeof match === 'string' ? match.replace('billing_checkout_', '') : '';
+  let tier = '';
+  if (typeof match === 'string') {
+    tier = match.replace('billing_checkout_', '');
+  } else if (Array.isArray(match) && match[0]) {
+    tier = match[0].replace('billing_checkout_', '');
+  }
   if (tier !== 'pro' && tier !== 'enterprise') {
     await ctx.answerCbQuery('Invalid plan');
     return;
