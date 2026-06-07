@@ -17,21 +17,20 @@ import { Network, getExplorerBaseUrl, getAddressExplorerUrl } from '../../utils/
 // ─── Config ─────────────────────────────────────────────────
 
 function getXdcscanBaseUrl(network: Network = 'mainnet'): string {
-  return network === 'testnet'
-    ? 'https://rpc.apothem.network'
-    : env.XDCSCAN_API;
+  if (network === 'testnet') {
+    // Testnet: RPC endpoint for balance/transactions (XDCScan testnet API is dead)
+    return 'https://rpc.apothem.network';
+  }
+  return env.XDCSCAN_API;
 }
 
 function createXdcscanClient(network: Network = 'mainnet') {
-  const isTestnet = network === 'testnet';
   return axios.create({
     baseURL: getXdcscanBaseUrl(network),
     timeout: 15000,
     headers: {
       'Content-Type': 'application/json',
     },
-    // For testnet JSON-RPC, don't use baseURL path
-    ...(isTestnet && { baseURL: undefined }),
   });
 }
 
@@ -507,6 +506,39 @@ export async function getTokenBalance(
 export async function getGasPrice(network: Network = 'mainnet'): Promise<GasPriceResponse> {
   logger.info('[XDCScan] getGasPrice', { network });
 
+  // Testnet: Use RPC directly (XDCScan testnet API is dead)
+  if (network === 'testnet') {
+    try {
+      const response = await axios.post(
+        'https://rpc.apothem.network',
+        {
+          jsonrpc: '2.0',
+          method: 'eth_gasPrice',
+          params: [],
+          id: 1,
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 15000,
+        }
+      );
+
+      const gasPriceHex = response.data?.result;
+      const gasPriceGwei = gasPriceHex ? weiToGwei(String(parseInt(gasPriceHex, 16))) : '0';
+
+      return {
+        safeGasPrice: gasPriceGwei,
+        proposeGasPrice: gasPriceGwei,
+        fastGasPrice: gasPriceGwei,
+        network,
+        source: 'xdcscan',
+      };
+    } catch (error) {
+      return handleApiError(error, 'getGasPrice');
+    }
+  }
+
+  // Mainnet: Use XDCScan API
   const xdcscanClient = createXdcscanClient(network);
 
   try {
