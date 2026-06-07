@@ -8,6 +8,7 @@ export interface IConnectedWallet {
   address: string;
   network: 'mainnet' | 'testnet';
   label?: string;
+  language: 'en' | 'hi' | 'mr';
   isConnected: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -36,6 +37,7 @@ export class ConnectedWalletModel {
     const now = new Date();
     const wallet: IConnectedWallet = {
       ...walletData,
+      language: walletData.language || 'en',
       createdAt: now,
       updatedAt: now,
     };

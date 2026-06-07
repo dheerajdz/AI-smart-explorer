@@ -33,6 +33,7 @@ export async function connectWallet(
         platform,
         address: trimmed,
         network: detectedNetwork,
+        language: 'en',
         isConnected: true,
       }
     );
