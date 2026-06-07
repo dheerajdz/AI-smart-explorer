@@ -26,6 +26,7 @@ import {
 } from '../../services/blockchainCommands';
 import { getMultiChainBalance, getMultiChainTransactions, getMultiChainGasPrice } from '../../services/multiChain/multiChainService';
 import { getSupportedChains } from '../../config/chains';
+import { getUserTranslation, setUserLanguage } from '../../services/i18nService';
 
 export async function commandRouter(
   platform: Platform,
@@ -195,8 +196,36 @@ export async function commandRouter(
       return { text: (await cmdPremium(userId)).text, parseMode: 'markdown' };
 
     case '/language': {
-      const lang = args[0] || 'en';
-      return { text: (await cmdSetLanguage(userId, lang)).text, parseMode: 'markdown' };
+      const lang = args[0]?.toLowerCase();
+      const validLangs = ['en', 'hi', 'mr'];
+      
+      // If no language provided, show picker
+      if (!lang || !validLangs.includes(lang)) {
+        return {
+          text:
+            `🌐 *Select Language*\n\n` +
+            `Current: ${(await getUserTranslation(userId, platform)).prompt_select_language}\n\n` +
+            `Choose:\n` +
+            `• \`/language en\` — English 🇬🇧\n` +
+            `• \`/language hi\` — हिन्दी 🇮🇳\n` +
+            `• \`/language mr\` — मराठी 🇮🇳`,
+          parseMode: 'markdown',
+        };
+      }
+      
+      // Set language using i18nService
+      const success = await setUserLanguage(userId, platform, lang);
+      if (!success) {
+        return { text: '❌ Failed to set language. Please try again.' };
+      }
+      
+      const messages: Record<string, string> = {
+        en: '✅ Language set to English 🇬🇧',
+        hi: '✅ भाषा हिंदी में सेट की गई 🇮🇳',
+        mr: '✅ भाषा मराठीत सेट केली 🇮🇳',
+      };
+      
+      return { text: messages[lang] || messages['en'] };
     }
 
     case '/alert': {
