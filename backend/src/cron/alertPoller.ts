@@ -52,9 +52,11 @@ export async function pollAlerts(): Promise<void> {
 
         // Send notification
         await sendAlertNotification(alert, result.data);
+        logger.info('[alertPoller] Notification sent, marking triggered', { alertId: alert._id });
 
         // Mark as triggered
         await markAlertTriggered(alert._id.toString());
+        logger.info('[alertPoller] Alert marked triggered', { alertId: alert._id });
       }
     } catch (err) {
       logger.error('[alertPoller] Failed to evaluate alert', {

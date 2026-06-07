@@ -61,13 +61,15 @@ export async function getActiveAlerts(): Promise<IAlert[]> {
 }
 
 export async function markAlertTriggered(alertId: string): Promise<void> {
+  const now = new Date();
   await AlertModel.updateOne(
     { _id: alertId },
     {
-      $set: { lastTriggered: new Date() },
+      $set: { lastTriggered: now },
       $inc: { triggerCount: 1 },
     }
   );
+  logger.info('[alertService] Alert marked triggered', { alertId, lastTriggered: now });
 }
 
 export async function checkAlertCooldown(alert: IAlert): Promise<boolean> {
