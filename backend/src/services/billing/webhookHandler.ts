@@ -87,15 +87,29 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session):
     return;
   }
 
-  const subscription = session.subscription as Stripe.Subscription;
-  const customer = session.customer as Stripe.Customer;
+  const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
+  const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
+
+  if (!customerId || !subscriptionId) {
+    logger.error('[billingWebhook] Missing customer or subscription', { sessionId: session.id });
+    return;
+  }
+
+  // Retrieve full subscription to get period dates
+  const { retrieveSubscription } = await import('./stripeService');
+  const subscription = await retrieveSubscription(subscriptionId);
+  
+  if (!subscription) {
+    logger.error('[billingWebhook] Could not retrieve subscription', { subscriptionId });
+    return;
+  }
 
   await activatePaidSubscription(
     userId,
     platform,
     tier,
-    customer.id,
-    subscription.id,
+    customerId,
+    subscriptionId,
     new Date(subscription.current_period_start * 1000),
     new Date(subscription.current_period_end * 1000)
   );
