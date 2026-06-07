@@ -30,6 +30,12 @@ import {
   handleSettingsLanguage,
   handleLanguageSelection,
 } from './walletConnect';
+import {
+  subscriptionCommand,
+  upgradeCommand,
+  handleBillingCheckout,
+  handleBillingPortal,
+} from './billingCommands';
 import { handleTelegramMessage } from './adapter';
 
 export function createBot(): Telegraf {
@@ -39,6 +45,14 @@ export function createBot(): Telegraf {
   bot.command('start', startCommand);
   bot.command('menu', menuCommand);
   bot.command('logout', logoutCommand);
+  bot.command('subscription', subscriptionCommand);
+  bot.command('upgrade', upgradeCommand);
+
+  /* -------------------- Billing Callbacks -------------------- */
+  bot.action('billing_upgrade', upgradeCommand);
+  bot.action('billing_checkout_pro', handleBillingCheckout);
+  bot.action('billing_checkout_enterprise', handleBillingCheckout);
+  bot.action('billing_portal', handleBillingPortal);
 
   /* -------------------- Auth Callbacks -------------------- */
   bot.action('action_signup', handleSignupAction);
