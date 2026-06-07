@@ -198,7 +198,7 @@ export async function keywordRouter(
             'Try: `/track xdc...`',
         };
       }
-      const result = cmdTrack(addr, userId);
+      const result = await cmdTrack(addr, userId, platform);
       return { text: result.text };
     }
 

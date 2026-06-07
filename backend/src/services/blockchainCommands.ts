@@ -106,12 +106,30 @@ export async function cmdTransactions(address: string, limit: number = 5): Promi
 
 // ─── 3. Track Wallet ────────────────────────────────────────
 
-export function cmdTrack(address: string, userId: string): CommandResult {
+export async function cmdTrack(address: string, userId: string, platform?: string): Promise<CommandResult> {
   if (!isValidXdcAddress(address)) {
     return {
       success: false,
       text: '❌ Invalid address. Must start with `xdc`, `txdc`, or `0x` (42 chars).',
     };
+  }
+
+  // ── Check tier limits ────────────────────────────────────
+  if (platform) {
+    const { canAddPortfolioWallet, incrementUsage } = await import('../billing/subscriptionService');
+    const wallets = walletService.listWallets(userId);
+    const canAdd = await canAddPortfolioWallet(userId, platform as any, wallets.length);
+    if (!canAdd) {
+      return {
+        success: false,
+        text:
+          '❌ *Wallet Limit Reached*\n\n' +
+          'You have reached the maximum number of tracked wallets for your plan.\n\n' +
+          '💎 Upgrade to Pro for more wallets:\n' +
+          '• /upgrade',
+      };
+    }
+    await incrementUsage(userId, platform as any, 'portfolioWallets');
   }
 
   const network = detectNetwork(address);
@@ -433,6 +451,20 @@ export async function cmdCreateAlert(
   args: string[]
 ): Promise<CommandResult> {
   try {
+    // ── Check tier limits ────────────────────────────────────
+    const { canCreateAlert, incrementUsage } = await import('../billing/subscriptionService');
+    const canCreate = await canCreateAlert(userId, platform as any);
+    if (!canCreate) {
+      return {
+        success: false,
+        text:
+          '❌ *Alert Limit Reached*\n\n' +
+          'You have reached the maximum number of alerts for your plan.\n\n' +
+          '💎 Upgrade to Pro for unlimited alerts:\n' +
+          '• /upgrade',
+      };
+    }
+
     const { createAlert } = await import('./alert');
 
     // Parse args: /alert gas > 50
@@ -487,6 +519,9 @@ export async function cmdCreateAlert(
       condition,
       cooldownMinutes: 60,
     });
+
+    // Track usage
+    await incrementUsage(userId, platform as any, 'alertsCreated');
 
     return {
       success: true,

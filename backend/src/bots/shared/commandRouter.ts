@@ -95,7 +95,7 @@ export async function commandRouter(
         input: addr,
         metadata: { address: addr },
       });
-      return { text: cmdTrack(addr, userId).text, parseMode: 'markdown' };
+      return { text: (await cmdTrack(addr, userId, platform)).text, parseMode: 'markdown' };
     }
 
     case '/untrack':
