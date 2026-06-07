@@ -36,7 +36,7 @@ export async function askGroq(prompt: string): Promise<string> {
   const response = await groqClient.post('/chat/completions', {
     model: GROQ_MODEL,
     messages: [
-      { role: 'system', content: 'You are a helpful blockchain data assistant. Always follow the output format requested by the user.' },
+      { role: 'system', content: 'You are a JSON-only API. You MUST return ONLY valid JSON. No prose, no explanations, no markdown, no greetings. Your entire response must be parseable by JSON.parse().' },
       { role: 'user', content: prompt },
     ],
     temperature: 0.1,

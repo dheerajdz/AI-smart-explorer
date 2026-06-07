@@ -344,8 +344,13 @@ export async function keywordRouter(
         '• `/list` — show tracked wallets\n\n' +
         'Type `/help` for all commands.',
     };
-  } catch (err) {
-    logger.error('[keywordRouter] Unhandled error', { error: err, message, userId });
+  } catch (err: any) {
+    logger.error('[keywordRouter] Unhandled error', {
+      error: err?.message || err?.toString?.() || String(err),
+      stack: err?.stack,
+      message,
+      userId,
+    });
     return {
       text: "🤖 I didn't understand that. Type /help to see what I can do.",
     };

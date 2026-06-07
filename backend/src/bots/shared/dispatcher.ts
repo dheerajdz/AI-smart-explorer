@@ -2,11 +2,8 @@ import { logger } from '../../utils/logger';
 import { Platform, BotResponse } from './types';
 import { isGreeting, generateWelcome } from './welcome';
 import { commandRouter, handleAddressOnly } from './commandRouter';
-import { keywordRouter } from './keywordRouter';
-import { messageRouter } from '../../services/messageRouter';
-import { isValidXdcAddress } from '../../utils/network';
+import { keywordRouter } from '../../services/keywordRouter';
 import { ActivityLogModel } from '../../models/ActivityLog';
-import { connectWallet, disconnectWallet } from '../../services/connectedWalletService';
 
 /**
  * Unified bot dispatcher.
@@ -56,37 +53,9 @@ export async function dispatch(
     return response;
   }
 
-  // ─── 3. AI / Natural language routing (primary) ─────────────
-  try {
-    const { parseQuery, executeQuery } = await import('../../services/ai');
-    const { detectNetwork } = await import('../../utils/network');
-
-    const addressMatch = trimmed.match(/\b(xdc[0-9a-fA-F]{40}|txdc[0-9a-fA-F]{40}|0x[0-9a-fA-F]{40})\b/);
-    const detectedNetwork = addressMatch ? detectNetwork(addressMatch[0]) : 'mainnet';
-
-    const parsed = await parseQuery(trimmed);
-
-    if (parsed.action !== 'unknown') {
-      parsed.network = parsed.network || detectedNetwork;
-      parsed.userId = userId;
-      parsed.platform = platform as any;
-
-      const result = await executeQuery(parsed);
-      logger.info('[dispatch] AI routing success', { action: parsed.action });
-      await ActivityLogModel.create({
-        userId,
-        platform,
-        action: 'ai_query',
-        input: trimmed,
-        output: result.text.substring(0, 200),
-      });
-      return { text: result.text, parseMode: 'markdown' };
-    }
-
-    logger.info('[dispatch] AI parsed as unknown, falling back to keyword router');
-  } catch (err) {
-    logger.warn('[dispatch] AI routing failed, falling back to keyword router', { error: err });
-  }
+  // ─── 3. AI / Natural language routing (DISABLED for now) ────
+  // TODO: Re-enable when Groq NLU pipeline is fully tested
+  logger.info('[dispatch] AI routing disabled, using keyword fallback');
 
   // ─── 4. Keyword routing (fallback) ──────────────────────────
   const keywordResult = await keywordRouter(trimmed, userId, platform);
@@ -101,6 +70,11 @@ export async function dispatch(
     });
     return keywordResult;
   }
+
+  // ─── 5. Final fallback ──────────────────────────────────────
+  return {
+    text: "🤖 I didn't understand that. Type /help to see what I can do.",
+  };
 }
 
 export async function logWalletConnect(

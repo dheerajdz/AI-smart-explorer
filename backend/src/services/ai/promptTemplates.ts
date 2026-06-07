@@ -39,8 +39,17 @@ Supported actions:
 - create_alert         → Create a price/activity alert
 - list_alerts          → List active alerts
 - delete_alert         → Delete an alert
+- help                 → Show menu/help (use for "main menu", "help", "what can you do", "start")
 
 Examples:
+
+Input: "main menu"
+Output:
+{"action":"help"}
+
+Input: "what can you do"
+Output:
+{"action":"help"}
 
 Input: "Is my wallet connected?"
 Output:
