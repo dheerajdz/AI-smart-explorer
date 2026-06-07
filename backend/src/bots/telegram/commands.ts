@@ -463,6 +463,7 @@ async function processSignupWallet(ctx: Context, telegramId: number, walletAddre
       walletAddress: walletAddress.trim().toLowerCase(),
       plan: 'free',
       isEmailVerified: true,
+      preferredLanguage: 'en',
     });
 
     await ConversationStateService.clearState(telegramId);

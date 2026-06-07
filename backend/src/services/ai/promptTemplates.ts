@@ -88,6 +88,34 @@ Input: "Test webhook 667123abc"
 Output:
 {"action":"webhook_test","webhookId":"667123abc"}
 
+Input: "xdc123 ka balance batao"
+Output:
+{"action":"balance","address":"xdc123"}
+
+Input: "माझं wallet activity दाखवा"
+Output:
+{"action":"wallet_activity","address":"wallet"}
+
+Input: "balance dikhao"
+Output:
+{"action":"balance"}
+
+Input: "0xabc... ka transaction detail batao"
+Output:
+{"action":"transaction_detail","txHash":"0xabc..."}
+
+Input: "mera wallet track karo"
+Output:
+{"action":"track_wallet","address":"wallet"}
+
+Input: "gas price kitna hai"
+Output:
+{"action":"gas_price"}
+
+Input: "maze alerts dakhava"
+Output:
+{"action":"list_alerts"}
+
 Return ONLY JSON for this input:
 `;
 
@@ -118,6 +146,10 @@ Output:
 Input: "Tell me when gas goes above 50 gwei"
 Output:
 {"action":"create_alert","type":"gas_spike","condition":{"operator":">","value":50,"unit":"gwei"},"notifyVia":"whatsapp"}
+
+Input: "XDC price girne pe alert do"
+Output:
+{"action":"create_alert","type":"price_threshold","condition":{"operator":"<","value":0.02,"currency":"USD"},"notifyVia":"whatsapp"}
 
 Return ONLY JSON for this input:
 `;
@@ -185,6 +217,10 @@ Output:
 Input: user message was unclear
 Output:
 Hmm, I didn't catch that. 🤔\n\nTry asking like:\n• "Show balance of 0x..."\n• "What is tx 0x...?"\n• "Failed contracts last 3 days"\n\nOr type "help" for all options.
+
+Input: user said "madad" or "sahayya"
+Output:
+🤖 *Smart AI Explorer* — Blockchain ko text karo!\n\nTry:\n• "xdc123 ka balance batao"\n• "Tx 0xabc..."\n• "Mera wallet track karo"\n\nAap kya dekhna chahte hain?
 
 Generate help for this context:
 `;

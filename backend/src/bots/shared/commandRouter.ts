@@ -4,6 +4,8 @@ import { connectWallet, disconnectWallet, getConnectedWallet } from '../../servi
 import { isValidXdcAddress, detectNetwork } from '../../utils/network';
 import { ActivityLogModel } from '../../models/ActivityLog';
 import { AlertPlatform } from '../../models/Alert';
+import { UserModel } from '../../models/User';
+import { SUPPORTED_LANGUAGES } from '../../services/i18n';
 import {
   cmdBalance,
   cmdTransactions,
@@ -34,6 +36,11 @@ export async function commandRouter(
   const address = args[0] || '';
 
   logger.info('[commandRouter]', { platform, userId, command: normalized, args });
+
+  // ─── Language Command ───────────────────────────────────────
+  if (normalized === '/language' || normalized === '/lang') {
+    return await handleLanguageCommand(platform, userId, args);
+  }
 
   switch (normalized) {
     case '/start':
@@ -190,6 +197,68 @@ async function getConnectedAddress(platform: Platform, userId: string): Promise<
   if (!wallet) return '';
   const prefix = wallet.network === 'testnet' ? 'txdc' : 'xdc';
   return wallet.address.startsWith('0x') ? `${prefix}${wallet.address.slice(2)}` : wallet.address;
+}
+
+/**
+ * Handle /language or /lang command.
+ * Updates user preference in database.
+ */
+async function handleLanguageCommand(
+  platform: Platform,
+  userId: string,
+  args: string[]
+): Promise<BotResponse> {
+  const lang = args[0]?.toLowerCase();
+
+  // Show current language if no argument
+  if (!lang) {
+    const user = await UserModel.findOne({ telegramId: Number(userId) });
+    const currentLang = user?.preferredLanguage || 'en';
+
+    const langNames: Record<string, string> = {
+      en: 'English 🇬🇧',
+      hi: 'Hindi 🇮🇳',
+      mr: 'Marathi 🇮🇳',
+    };
+
+    return {
+      text: `🌐 *Language Settings*\n\nCurrent: ${langNames[currentLang] || currentLang}\n\nAvailable languages:\n• /language en - English\n• /language hi - हिंदी\n• /language mr - मराठी`,
+      parseMode: 'markdown',
+    };
+  }
+
+  // Validate language
+  if (!SUPPORTED_LANGUAGES.includes(lang as any)) {
+    return {
+      text: `❌ Invalid language: "${lang}"\n\nAvailable languages:\n• /language en - English\n• /language hi - हिंदी\n• /language mr - मराठी`,
+      parseMode: 'markdown',
+    };
+  }
+
+  // Update in database
+  try {
+    const numericId = Number(userId);
+    if (!isNaN(numericId)) {
+      await UserModel.updateLanguage(numericId, lang as any);
+    }
+
+    const confirmations: Record<string, string> = {
+      en: '✅ Language set to English',
+      hi: '✅ भाषा हिंदी में सेट की गई',
+      mr: '✅ भाषा मराठीत सेट केली',
+    };
+
+    return {
+      text: confirmations[lang] || `✅ Language set to ${lang}`,
+      parseMode: 'markdown',
+    };
+  } catch (err) {
+    logger.error('Failed to update language preference', { userId, lang, error: err });
+    return {
+      text: '❌ Failed to update language preference. Please try again.',
+      parseMode: 'markdown',
+    };
+  }
 }
 
 export async function handleAddressOnly(

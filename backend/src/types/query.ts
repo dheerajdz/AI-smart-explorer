@@ -4,6 +4,8 @@
 // Any new capability must be registered here first.
 // ============================================================
 
+import { SupportedLanguage } from '../services/i18n';
+
 /**
  * Every action the Smart AI Explorer bot supports.
  * Used for:
@@ -64,6 +66,9 @@ export interface ParsedQuery {
   /** The routing key — determines which handler executes. */
   action: QueryAction;
 
+  /** Detected language from user message. */
+  language: SupportedLanguage;
+
   /** Network context extracted from address (mainnet | testnet). */
   network?: 'mainnet' | 'testnet';
 
@@ -115,10 +120,13 @@ export const QUERY_ACTION_EXAMPLES: Record<QueryAction, string[]> = {
   [QueryAction.WALLET_BALANCE]: [
     'Balance of xdc123...',
     'How much XDC does 0xabc... have?',
+    'xdc123 ka balance batao',
+    '0xabc... cha balance dakhva',
   ],
   [QueryAction.WALLET_ACTIVITY]: [
     'Show activity for xdc123...',
     'What has 0xabc... been doing?',
+    'xdc123 ki activity dikhao',
   ],
   [QueryAction.TOKEN_BALANCE]: [
     'Token balance of xdc123...',
@@ -132,6 +140,7 @@ export const QUERY_ACTION_EXAMPLES: Record<QueryAction, string[]> = {
   [QueryAction.TRANSACTIONS]: [
     'Show transactions for xdc123...',
     'Tx history of 0xabc...',
+    'xdc123 ke transactions dikhao',
   ],
   [QueryAction.TRANSACTION_DETAIL]: [
     'Tx 0xabc...',
@@ -140,6 +149,7 @@ export const QUERY_ACTION_EXAMPLES: Record<QueryAction, string[]> = {
   [QueryAction.FAILED_TRANSACTIONS]: [
     'Failed transactions for xdc123...',
     'Show failed txs last week',
+    'xdc123 ke failed transactions dikhao',
   ],
   [QueryAction.LARGE_TRANSFERS]: [
     'Large transfers from xdc123...',
@@ -175,10 +185,12 @@ export const QUERY_ACTION_EXAMPLES: Record<QueryAction, string[]> = {
   [QueryAction.CREATE_ALERT]: [
     'Alert me when XDC drops below $0.02',
     'Notify if gas > 50 gwei',
+    'XDC price girne pe alert do',
   ],
   [QueryAction.LIST_ALERTS]: [
     'Show my alerts',
     'List active alerts',
+    'Mere alerts dikhao',
   ],
   [QueryAction.DELETE_ALERT]: [
     'Delete alert #1',
@@ -205,6 +217,8 @@ export const QUERY_ACTION_EXAMPLES: Record<QueryAction, string[]> = {
   [QueryAction.HELP]: [
     'help',
     '?',
+    'madad',
+    'sahayya',
   ],
   [QueryAction.UNKNOWN]: [
     'Try one of the examples above',

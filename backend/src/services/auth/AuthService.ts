@@ -125,6 +125,7 @@ export class AuthService {
         walletAddress: walletAddress.trim().toLowerCase(),
         plan: 'free',
         isEmailVerified: true,
+        preferredLanguage: 'en',
       });
 
       logger.info('User signed up', { telegramId, userId: savedUser._id, email, walletAddress: savedUser.walletAddress });
