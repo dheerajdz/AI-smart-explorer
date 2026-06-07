@@ -28,6 +28,8 @@ import {
 import { handleTelegramMessage } from './adapter';
 import { commandHandler } from '../../services/commandHandler';
 
+import { portfolioCommand } from './commands/portfolioCommand';
+
 export function createBot(): Telegraf {
   const bot = new Telegraf(env.TELEGRAM_BOT_TOKEN);
 
@@ -46,6 +48,7 @@ export function createBot(): Telegraf {
     await startCommand(ctx);
   });
 
+  bot.command('portfolio', portfolioCommand);
   bot.command('logout', logoutCommand);
 
   /* -------------------- Plan Commands -------------------- */

@@ -4,5 +4,6 @@ export * from './blockchain';
 export * from './commandHandler';
 export * from './messageRouter';
 export * from './notification';
-export * from './walletService';
+// Note: walletService is not re-exported here to avoid ambiguity with
+// blockchain.getWalletBalance. Import directly from './walletService'.
 export * as planService from './planService';
