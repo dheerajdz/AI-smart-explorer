@@ -33,8 +33,8 @@ export async function createCheckoutSession(
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${env.FRONTEND_URL || 'http://localhost:3000'}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${env.FRONTEND_URL || 'http://localhost:3000'}/billing/cancel`,
+      success_url: `${env.FRONTEND_URL || 'http://localhost:3000'}/api/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${env.FRONTEND_URL || 'http://localhost:3000'}/api/billing/cancel`,
       metadata: { userId, tier, ...metadata },
       allow_promotion_codes: true,
     });

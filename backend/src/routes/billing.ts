@@ -120,4 +120,92 @@ router.post('/portal', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * GET /api/billing/success
+ * Handle successful checkout redirect
+ */
+router.get('/success', async (req: Request, res: Response) => {
+  const sessionId = req.query.session_id as string;
+  
+  if (!sessionId) {
+    res.status(400).send('Missing session_id');
+    return;
+  }
+
+  try {
+    const { retrieveCheckoutSession } = await import('../services/billing/stripeService');
+    const session = await retrieveCheckoutSession(sessionId);
+    
+    if (!session) {
+      res.status(404).send('Session not found');
+      return;
+    }
+
+    const tier = session.metadata?.tier || 'unknown';
+    
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Payment Successful</title>
+          <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f0f9ff; }
+            .container { max-width: 500px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+            h1 { color: #16a34a; }
+            .icon { font-size: 64px; margin-bottom: 20px; }
+            .tier { font-size: 24px; font-weight: bold; color: #2563eb; margin: 20px 0; }
+            .message { color: #666; margin: 20px 0; }
+            .btn { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="icon">✅</div>
+            <h1>Payment Successful!</h1>
+            <div class="tier">${tier === 'pro' ? '💎 Pro Plan' : tier === 'enterprise' ? '🏢 Enterprise Plan' : 'Plan'} Activated</div>
+            <div class="message">Thank you for upgrading! Your subscription is now active.</div>
+            <div class="message">Return to Telegram and use /subscription to see your new limits.</div>
+            <a class="btn" href="https://t.me/${process.env.TELEGRAM_BOT_USERNAME || 'your_bot'}">Open Telegram Bot</a>
+          </div>
+        </body>
+      </html>
+    `);
+  } catch (err) {
+    logger.error('[billingRoutes] Failed to retrieve checkout session', { error: err, sessionId });
+    res.status(500).send('Failed to verify payment. Please contact support.');
+  }
+});
+
+/**
+ * GET /api/billing/cancel
+ * Handle cancelled checkout
+ */
+router.get('/cancel', (req: Request, res: Response) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Payment Cancelled</title>
+        <style>
+          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #fef2f2; }
+          .container { max-width: 500px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+          h1 { color: #dc2626; }
+          .icon { font-size: 64px; margin-bottom: 20px; }
+          .message { color: #666; margin: 20px 0; }
+          .btn { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="icon">❌</div>
+          <h1>Payment Cancelled</h1>
+          <div class="message">You cancelled the checkout process. No charges were made.</div>
+          <div class="message">You can upgrade anytime with /upgrade in the bot.</div>
+          <a class="btn" href="https://t.me/${process.env.TELEGRAM_BOT_USERNAME || 'your_bot'}">Back to Bot</a>
+        </div>
+      </body>
+    </html>
+  `);
+});
+
 export default router;
