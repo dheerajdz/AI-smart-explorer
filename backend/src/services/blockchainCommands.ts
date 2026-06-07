@@ -18,6 +18,7 @@ import {
   getNetworkStats,
 } from './blockchain';
 import * as walletService from './walletService';
+import { getReputation, getLeaderboard, getTier, getTierEmoji } from './reputation/reputationService';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -657,6 +658,11 @@ export function cmdHelp(): CommandResult {
       `• \`/upgrade\` — Upgrade to Pro/Enterprise\n` +
       `• \`/billing\` — Manage subscription\n\n` +
 
+      `*Reputation Commands:*\n` +
+      `• \`/reputation xdc...\` — Check wallet reputation\n` +
+      `• \`/reputation\` — Your reputation (connected wallet)\n` +
+      `• \`/leaderboard\` — Top wallets by reputation\n\n` +
+
       `*Language Commands:*\n` +
       `• \`/language en\` — English\n` +
       `• \`/language hi\` — Hindi\n` +
@@ -680,4 +686,86 @@ export function cmdHelp(): CommandResult {
       `\`/balance xdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020\`\n` +
       `\`/tx txdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020\``,
   };
+}
+
+// ─── Reputation Commands ────────────────────────────────────
+
+export async function cmdReputation(address: string): Promise<CommandResult> {
+  if (!isValidXdcAddress(address)) {
+    return {
+      success: false,
+      text: '❌ Invalid address. Must start with `xdc`, `txdc`, or `0x` (42 chars).',
+    };
+  }
+
+  try {
+    const network = detectNetwork(address);
+    const rep = await getReputation(address, network);
+
+    if (!rep) {
+      return {
+        success: false,
+        text: '❌ Could not calculate reputation. Please try again later.',
+      };
+    }
+
+    const emoji = getTierEmoji(rep.tier);
+    const badges = rep.badges.length > 0
+      ? rep.badges.map((b) => `• ${b.replace(/_/g, ' ').toUpperCase()}`).join('\n')
+      : 'None yet';
+
+    return {
+      success: true,
+      text:
+        `${emoji} *Wallet Reputation*\n\n` +
+        `*Address:* \`${address}\`\n` +
+        `*Score:* ${rep.overallScore}/100\n` +
+        `*Tier:* ${rep.tier}\n\n` +
+        `*Metrics:*\n` +
+        `• Account Age: ${rep.metrics.accountAgeDays} days\n` +
+        `• Transactions: ${rep.metrics.transactionCount}\n` +
+        `• Total Volume: ${rep.metrics.totalVolumeXDC} XDC\n` +
+        `• Avg Tx Value: ${rep.metrics.avgTxValueXDC} XDC\n` +
+        `• Success Rate: ${((1 - rep.metrics.failedTxRatio) * 100).toFixed(1)}%\n` +
+        `• Contracts: ${rep.metrics.contractInteractions}\n` +
+        `• Whale Score: ${rep.metrics.whaleScore}/100\n\n` +
+        `*Badges:*\n${badges}\n\n` +
+        `_Last updated: ${rep.lastUpdated.toLocaleDateString()}_`,
+      rawData: rep,
+    };
+  } catch (err) {
+    return formatError('cmdReputation', err);
+  }
+}
+
+export async function cmdLeaderboard(): Promise<CommandResult> {
+  try {
+    const leaders = await getLeaderboard('mainnet', 10);
+
+    if (leaders.length === 0) {
+      return {
+        success: true,
+        text: '🏆 *Reputation Leaderboard*\n\nNo wallets ranked yet. Be the first!',
+      };
+    }
+
+    const list = leaders
+      .map((w, i) => {
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+        const emoji = getTierEmoji(w.tier);
+        return `${medal} \`${w.address.slice(0, 12)}...\` — ${emoji} ${w.overallScore} pts`;
+      })
+      .join('\n');
+
+    return {
+      success: true,
+      text:
+        `🏆 *Reputation Leaderboard*\n\n` +
+        `${list}\n\n` +
+        `_Total ranked wallets: ${leaders[0]?.totalRanked || 0}_`,
+      rawData: leaders,
+    };
+  } catch (err) {
+    return formatError('cmdLeaderboard', err);
+  }
 }

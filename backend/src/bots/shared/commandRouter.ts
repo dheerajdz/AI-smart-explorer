@@ -21,6 +21,8 @@ import {
   cmdCreateAlert,
   cmdDeleteAlert,
   cmdPremium,
+  cmdReputation,
+  cmdLeaderboard,
 } from '../../services/blockchainCommands';
 
 export async function commandRouter(
@@ -159,6 +161,15 @@ export async function commandRouter(
           : '⚠️ No wallet found to disconnect.',
         parseMode: 'markdown',
       };
+
+    case '/reputation': {
+      const addr = address || (await getConnectedAddress(platform, userId));
+      if (!addr) return { text: 'Usage: /reputation <address>\n\nOr connect a wallet first.' };
+      return { text: (await cmdReputation(addr)).text, parseMode: 'markdown' };
+    }
+
+    case '/leaderboard':
+      return { text: (await cmdLeaderboard()).text, parseMode: 'markdown' };
 
     default:
       return { text: 'Unknown command. Type /help for available commands.' };
