@@ -11,6 +11,7 @@ const envSchema = z.object({
   TWILIO_ACCOUNT_SID: z.string().min(1, 'TWILIO_ACCOUNT_SID is required'),
   TWILIO_AUTH_TOKEN: z.string().min(1, 'TWILIO_AUTH_TOKEN is required'),
   TWILIO_WHATSAPP_NUMBER: z.string().min(1, 'TWILIO_WHATSAPP_NUMBER is required'),
+  ADMIN_TELEGRAM_ID: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

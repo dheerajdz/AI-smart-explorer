@@ -32,8 +32,8 @@ async function main(): Promise<void> {
 
   const bot = createTelegramBot();
   
-  // Launch with error handling to prevent crash on 409 conflicts
-  bot.launch().catch((err) => {
+  // Launch with dropPendingUpdates to avoid 409 conflicts from old instances
+  bot.launch({ dropPendingUpdates: true }).catch((err) => {
     logger.error('Telegram bot launch failed', { error: (err as Error).message });
     logger.info('💡 Tip: Another bot instance may be running. Kill all node processes if needed.');
   });

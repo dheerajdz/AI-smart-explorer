@@ -7,7 +7,8 @@ export interface RouterResponse {
 
 export async function messageRouter(
   message: string,
-  userId: string
+  userId: string,
+  telegramId?: number
 ): Promise<RouterResponse> {
   const trimmedMessage = message.trim();
 
@@ -18,7 +19,7 @@ export async function messageRouter(
     const command = parts[0];
     const args = parts.slice(1);
 
-    return commandHandler(command, args, userId);
+    return commandHandler(command, args, userId, telegramId);
   }
 
   // Non-command messages go to AI in the future
