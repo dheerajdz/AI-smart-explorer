@@ -2,7 +2,7 @@ import { logger } from '../utils/logger';
 import { getTransactions } from '../services/blockchain';
 import * as store from '../services/storage/inMemoryStore';
 import { sendTelegramNotification } from '../services/notification/telegramNotify';
-import { getTxExplorerUrl } from '../utils/network';
+import { getTxExplorerUrl, type Network } from '../utils/network';
 
 const lastSeenTx = new Map<string, string>(); // userId:address -> last tx hash
 
@@ -26,7 +26,7 @@ export async function pollWallets(): Promise<void> {
 
         if (previousHash && previousHash !== latestTx.hash) {
           // New transaction detected
-          const explorerUrl = getTxExplorerUrl(wallet.network, latestTx.hash);
+          const explorerUrl = getTxExplorerUrl(latestTx.hash, wallet.network as Network);
           const value = Number(latestTx.value) / 1e18;
 
           await sendTelegramNotification(

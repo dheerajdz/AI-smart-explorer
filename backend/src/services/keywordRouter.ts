@@ -191,7 +191,7 @@ export async function keywordRouter(
           'Try: `/track xdc...`',
       };
     }
-    const result = cmdTrack(addr, userId);
+    const result = await cmdTrack(addr, userId);
     return { text: result.text };
   }
 
@@ -205,13 +205,13 @@ export async function keywordRouter(
           'Try: `/untrack xdc...`',
       };
     }
-    const result = cmdUntrack(addr, userId);
+    const result = await cmdUntrack(addr, userId);
     return { text: result.text };
   }
 
   // ─── 13. List tracked ───────────────────────────────────────
   if (lower.includes('list') || lower.includes('tracked') || lower.includes('my wallets')) {
-    const result = cmdList(userId);
+    const result = await cmdList(userId);
     return { text: result.text };
   }
 

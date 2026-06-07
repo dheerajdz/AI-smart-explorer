@@ -3,6 +3,12 @@
 // Shared command logic for Telegram and WhatsApp bots.
 // Each function is platform-agnostic — returns raw data + text.
 // Platform-specific formatting happens in the bot layer.
+//
+// DESIGN PRINCIPLES:
+//   1. Surface specific, actionable error messages.
+//   2. Never swallow errors with generic "Failed to fetch".
+//   3. Pass through XDCScanError details to the user.
+//   4. Wallet tracking uses MongoDB persistence.
 // ============================================================
 
 import { logger } from '../utils/logger';
@@ -15,6 +21,7 @@ import {
   getGasPrice,
   getBlockByNumber,
   getFailedTransactions,
+  XDCScanError,
 } from './blockchain';
 import * as walletService from './walletService';
 
@@ -29,8 +36,22 @@ export interface CommandResult {
 // ─── Helper ─────────────────────────────────────────────────
 
 function formatError(context: string, error: unknown): CommandResult {
-  logger.error(`[blockchainCommands] ${context} failed`, { error });
-  return { success: false, text: '❌ Failed to fetch data. Please try again later.' };
+  let message: string;
+
+  if (error instanceof XDCScanError) {
+    // Pass through specific XDCScan errors with their meaningful messages
+    message = error.message;
+  } else if (error instanceof Error) {
+    message = `❌ ${context} failed: ${error.message}`;
+  } else {
+    message = `❌ ${context} failed. Please try again later.`;
+  }
+
+  logger.error(`[blockchainCommands] ${context} failed`, {
+    error: error instanceof Error ? error.message : String(error),
+  });
+
+  return { success: false, text: message };
 }
 
 // ─── 1. Balance ─────────────────────────────────────────────
@@ -102,7 +123,11 @@ export async function cmdTransactions(address: string, limit: number = 5): Promi
 
 // ─── 3. Track Wallet ────────────────────────────────────────
 
-export function cmdTrack(address: string, userId: string): CommandResult {
+export async function cmdTrack(
+  address: string,
+  userId: string,
+  platform: 'telegram' | 'whatsapp' | 'slack' | 'x' = 'telegram'
+): Promise<CommandResult> {
   if (!isValidXdcAddress(address)) {
     return {
       success: false,
@@ -111,7 +136,7 @@ export function cmdTrack(address: string, userId: string): CommandResult {
   }
 
   const network = detectNetwork(address);
-  const result = walletService.trackWallet(address, userId);
+  const result = await walletService.trackWallet(address, userId, platform);
 
   if (result.alreadyTracked) {
     return {
@@ -132,8 +157,8 @@ export function cmdTrack(address: string, userId: string): CommandResult {
 
 // ─── 4. Untrack Wallet ──────────────────────────────────────
 
-export function cmdUntrack(address: string, userId: string): CommandResult {
-  const result = walletService.untrackWallet(address, userId);
+export async function cmdUntrack(address: string, userId: string): Promise<CommandResult> {
+  const result = await walletService.untrackWallet(address, userId);
 
   if (!result.success) {
     return {
@@ -153,8 +178,8 @@ export function cmdUntrack(address: string, userId: string): CommandResult {
 
 // ─── 5. List Tracked Wallets ────────────────────────────────
 
-export function cmdList(userId: string): CommandResult {
-  const wallets = walletService.listWallets(userId);
+export async function cmdList(userId: string): Promise<CommandResult> {
+  const wallets = await walletService.listWallets(userId);
 
   if (wallets.length === 0) {
     return {
@@ -375,7 +400,7 @@ export function cmdHelp(): CommandResult {
       `• \`/tx xdc...\` — Show last 5 transactions\n` +
       `• \`/activity xdc...\` — Wallet activity stats\n` +
       `• \`/failed xdc...\` — Failed transactions\n` +
-      `• \`/large xdc...\` — Large transfers (\u003e1000 XDC)\n\n` +
+      `• \`/large xdc...\` — Large transfers (>1000 XDC)\n\n` +
 
       `*Tracking Commands:*\n` +
       `• \`/track xdc...\` — Track wallet for alerts\n` +

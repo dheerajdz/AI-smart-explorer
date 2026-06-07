@@ -23,13 +23,13 @@ export async function commandHandler(
       return await handleStatus();
 
     case '/track':
-      return handleTrack(userId, args);
+      return await handleTrack(userId, args);
 
     case '/untrack':
-      return handleUntrack(userId, args);
+      return await handleUntrack(userId, args);
 
     case '/list':
-      return handleList(userId);
+      return await handleList(userId);
 
     default:
       return { text: 'Unknown command.\n\nType /help to view available commands.' };
@@ -68,14 +68,14 @@ Redis: ${redisStatus}`,
   };
 }
 
-function handleTrack(userId: string, args: string[]): CommandResponse {
+async function handleTrack(userId: string, args: string[]): Promise<CommandResponse> {
   const wallet = args.join(' ').trim();
 
   if (!wallet) {
     return { text: '❌ Please provide a wallet address.\n\nUsage: /track <wallet>' };
   }
 
-  const result = walletService.trackWallet(wallet, userId);
+  const result = await walletService.trackWallet(wallet, userId);
 
   if (result.alreadyTracked) {
     return { text: `⚠️ Wallet already tracked\n\nWallet:\n${wallet}` };
@@ -84,14 +84,14 @@ function handleTrack(userId: string, args: string[]): CommandResponse {
   return { text: `✅ Wallet tracking enabled\n\nWallet:\n${wallet}` };
 }
 
-function handleUntrack(userId: string, args: string[]): CommandResponse {
+async function handleUntrack(userId: string, args: string[]): Promise<CommandResponse> {
   const wallet = args.join(' ').trim();
 
   if (!wallet) {
     return { text: '❌ Please provide a wallet address.\n\nUsage: /untrack <wallet>' };
   }
 
-  const result = walletService.untrackWallet(wallet, userId);
+  const result = await walletService.untrackWallet(wallet, userId);
 
   if (!result.success) {
     return { text: `⚠️ Wallet not found in tracking list\n\nWallet:\n${wallet}` };
@@ -100,8 +100,8 @@ function handleUntrack(userId: string, args: string[]): CommandResponse {
   return { text: `✅ Wallet removed from tracking\n\nWallet:\n${wallet}` };
 }
 
-function handleList(userId: string): CommandResponse {
-  const wallets = walletService.listWallets(userId);
+async function handleList(userId: string): Promise<CommandResponse> {
+  const wallets = await walletService.listWallets(userId);
 
   if (wallets.length === 0) {
     return { text: 'No tracked wallets.\n\nUse /track <wallet> to start tracking.' };

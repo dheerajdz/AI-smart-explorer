@@ -51,13 +51,13 @@ export function getExplorerBaseUrl(network: Network): string {
 /**
  * Get explorer link for a transaction.
  */
-export function getTxExplorerUrl(network: Network, txHash: string): string {
+export function getTxExplorerUrl(txHash: string, network: Network): string {
   return `${getExplorerBaseUrl(network)}/tx/${txHash}`;
 }
 
 /**
  * Get explorer link for an address.
  */
-export function getAddressExplorerUrl(network: Network, address: string): string {
+export function getAddressExplorerUrl(address: string, network: Network): string {
   return `${getExplorerBaseUrl(network)}/address/${address}`;
 }

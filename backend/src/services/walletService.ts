@@ -1,6 +1,6 @@
 import { logger } from '../utils/logger';
-import { Network } from '../utils/network';
-import * as store from './storage/inMemoryStore';
+import { Network, detectNetwork } from '../utils/network';
+import { TrackedWalletModel, ITrackedWallet } from '../models/TrackedWallet';
 
 export interface TrackResult {
   success: boolean;
@@ -8,30 +8,57 @@ export interface TrackResult {
   network?: Network;
 }
 
-export function trackWallet(address: string, userId: string): TrackResult {
-  const result = store.trackWallet(address, userId);
-  if (!result.alreadyTracked) {
-    logger.info('[walletService] Wallet tracked', { address, userId });
+export async function trackWallet(
+  address: string,
+  userId: string,
+  platform: 'telegram' | 'whatsapp' | 'slack' | 'x' = 'telegram'
+): Promise<TrackResult> {
+  const normalized = address.trim().toLowerCase();
+  const network = detectNetwork(normalized);
+
+  // Check if already tracked
+  const existing = await TrackedWalletModel.findByUserAndAddress(userId, normalized);
+  if (existing && existing.isActive) {
+    logger.info('[walletService] Wallet already tracked', { address: normalized, userId });
+    return {
+      success: true,
+      alreadyTracked: true,
+      network: existing.network as Network,
+    };
   }
+
+  // Track (or reactivate)
+  await TrackedWalletModel.track({
+    userId,
+    address: normalized,
+    network,
+    platform,
+    isActive: true,
+  });
+
+  logger.info('[walletService] Wallet tracked', { address: normalized, userId, network });
   return {
     success: true,
-    alreadyTracked: result.alreadyTracked,
-    network: store.listWallets(userId).find(w => w.address === address.trim().toLowerCase())?.network,
+    alreadyTracked: false,
+    network,
   };
 }
 
-export function untrackWallet(address: string, userId: string): { success: boolean } {
-  const result = store.untrackWallet(address, userId);
-  if (result.success) {
+export async function untrackWallet(
+  address: string,
+  userId: string
+): Promise<{ success: boolean }> {
+  const success = await TrackedWalletModel.untrack(userId, address);
+  if (success) {
     logger.info('[walletService] Wallet untracked', { address, userId });
   }
-  return result;
+  return { success };
 }
 
-export function listWallets(userId: string): store.StoredWallet[] {
-  return store.listWallets(userId);
+export async function listWallets(userId: string): Promise<ITrackedWallet[]> {
+  return TrackedWalletModel.listWallets(userId);
 }
 
-export function getAllTrackedUsers(): string[] {
-  return store.getAllUsers();
+export async function getAllTrackedUsers(): Promise<string[]> {
+  return TrackedWalletModel.getAllTrackedUsers();
 }

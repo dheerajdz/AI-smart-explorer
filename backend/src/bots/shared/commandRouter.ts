@@ -91,7 +91,8 @@ export async function commandRouter(
         input: addr,
         metadata: { address: addr },
       });
-      return { text: cmdTrack(addr, userId).text, parseMode: 'markdown' };
+      const trackResult = await cmdTrack(addr, userId, platform);
+      return { text: trackResult.text, parseMode: 'markdown' };
     }
 
     case '/untrack':
@@ -103,10 +104,13 @@ export async function commandRouter(
         input: address,
         metadata: { address },
       });
-      return { text: cmdUntrack(address, userId).text, parseMode: 'markdown' };
+      const untrackResult = await cmdUntrack(address, userId);
+      return { text: untrackResult.text, parseMode: 'markdown' };
 
-    case '/list':
-      return { text: cmdList(userId).text, parseMode: 'markdown' };
+    case '/list': {
+      const listResult = await cmdList(userId);
+      return { text: listResult.text, parseMode: 'markdown' };
+    }
 
     case '/disconnect':
       const result = await disconnectWallet(userId, platform);
