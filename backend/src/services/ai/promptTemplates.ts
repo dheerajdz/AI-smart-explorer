@@ -30,6 +30,10 @@ Supported actions:
 - block_info           → Get block by number or hash
 - token_balance        → Get ERC-20 token balance
 - nft_balance          → Get NFT holdings
+- webhook_create       → Register a webhook URL for notifications
+- webhook_list         → List registered webhooks
+- webhook_delete       → Delete a webhook
+- webhook_test         → Send a test event to a webhook
 
 Examples:
 
@@ -60,6 +64,22 @@ Output:
 Input: "How many XDC does 0x1111... hold?"
 Output:
 {"action":"balance","address":"0x1111..."}
+
+Input: "Webhook add https://myapp.com/events for large transfers"
+Output:
+{"action":"webhook_create","url":"https://myapp.com/events","events":["large.transfer"]}
+
+Input: "Show my webhooks"
+Output:
+{"action":"webhook_list"}
+
+Input: "Delete webhook 667123abc"
+Output:
+{"action":"webhook_delete","webhookId":"667123abc"}
+
+Input: "Test webhook 667123abc"
+Output:
+{"action":"webhook_test","webhookId":"667123abc"}
 
 Return ONLY JSON for this input:
 `;

@@ -22,6 +22,8 @@ import {
   getLargeTransfers,
 } from '../blockchain';
 import { formatResponse } from './kimiService';
+import { WebhookService } from '../webhook';
+import { emitWebhookEventAsync } from '../webhook';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -97,6 +99,19 @@ export async function executeQuery(parsed: ParsedQuery): Promise<QueryResult> {
     case QueryAction.DELETE_ALERT:
       return handleDeleteAlert(parsed);
 
+    // ── Webhooks ───────────────────────────────────────────────
+    case QueryAction.WEBHOOK_CREATE:
+      return handleWebhookCreate(parsed);
+
+    case QueryAction.WEBHOOK_LIST:
+      return handleWebhookList(parsed);
+
+    case QueryAction.WEBHOOK_DELETE:
+      return handleWebhookDelete(parsed);
+
+    case QueryAction.WEBHOOK_TEST:
+      return handleWebhookTest(parsed);
+
     // ── Help ─────────────────────────────────────────────────
     case QueryAction.HELP:
       return handleHelp();
@@ -118,10 +133,19 @@ async function handleWalletBalance(parsed: ParsedQuery): Promise<QueryResult> {
 
   try {
     const data = await getWalletBalance(address);
-    return {
+    const result = {
       text: `💰 *Wallet Balance*\n\nAddress: \`${data.address}\`\nBalance: **${data.balanceXDC} XDC**`,
       rawData: data,
     };
+
+    // Emit webhook event for wallet balance check
+    emitWebhookEventAsync('wallet.tracked', {
+      address: data.address,
+      balanceXDC: data.balanceXDC,
+      source: data.source,
+    });
+
+    return result;
   } catch (err) {
     logger.error('[queryRouter] getWalletBalance failed', { address, error: err });
     return { text: '❌ Failed to fetch wallet balance. Please try again later.' };
@@ -136,7 +160,7 @@ async function handleWalletActivity(parsed: ParsedQuery): Promise<QueryResult> {
 
   try {
     const data = await getWalletActivity(address);
-    return {
+    const result = {
       text:
         `📊 *Wallet Activity*\n\n` +
         `Address: \`${data.address}\`\n` +
@@ -146,6 +170,17 @@ async function handleWalletActivity(parsed: ParsedQuery): Promise<QueryResult> {
         `Contracts Interacted: **${data.uniqueContractsInteracted}**`,
       rawData: data,
     };
+
+    // Emit webhook event for wallet activity check
+    emitWebhookEventAsync('wallet.tracked', {
+      address: data.address,
+      totalTransactions: data.totalTransactions,
+      uniqueContractsInteracted: data.uniqueContractsInteracted,
+      firstSeen: data.firstSeen,
+      lastSeen: data.lastSeen,
+    });
+
+    return result;
   } catch (err) {
     logger.error('[queryRouter] getWalletActivity failed', { address, error: err });
     return { text: '❌ Failed to fetch wallet activity. Please try again later.' };
@@ -213,7 +248,17 @@ async function handleLargeTransfers(parsed: ParsedQuery): Promise<QueryResult> {
       if (count > 5) text += `\n...and ${count - 5} more`;
     }
 
-    return { text, rawData: data };
+    const result = { text, rawData: data };
+
+    // Emit webhook event for large transfers
+    emitWebhookEventAsync('large.transfer', {
+      address: data.address,
+      threshold: data.threshold,
+      transferCount: count,
+      transfers: data.transfers.slice(0, 5),
+    });
+
+    return result;
   } catch (err) {
     logger.error('[queryRouter] getLargeTransfers failed', { address, error: err });
     return { text: '❌ Failed to fetch large transfers. Please try again later.' };
@@ -261,6 +306,14 @@ function handleNetworkStats(parsed: ParsedQuery): Promise<QueryResult> {
 // ─── Alert Handlers ─────────────────────────────────────────
 
 function handleCreateAlert(parsed: ParsedQuery): Promise<QueryResult> {
+  // Emit webhook event for alert creation
+  emitWebhookEventAsync('alert.triggered', {
+    message: 'New alert created',
+    type: parsed.type || 'price_threshold',
+    condition: parsed.condition || {},
+    note: 'This is a creation event. Actual trigger events will fire when conditions are met.',
+  });
+
   return Promise.resolve({ text: '🔔 *Alert Created*\n\nYour alert has been set. You will be notified when the condition is met.' });
 }
 
@@ -270,6 +323,107 @@ function handleListAlerts(parsed: ParsedQuery): Promise<QueryResult> {
 
 function handleDeleteAlert(parsed: ParsedQuery): Promise<QueryResult> {
   return Promise.resolve({ text: '🗑️ *Alert Deleted*\n\nThe alert has been removed.' });
+}
+
+// ─── Webhook Handlers ───────────────────────────────────────
+
+async function handleWebhookCreate(parsed: ParsedQuery): Promise<QueryResult> {
+  const url = parsed.url || '';
+  const events = parsed.events || ['large.transfer'];
+  const userId = parsed.userId || 'anonymous';
+
+  if (!url) {
+    return { text: '❌ Please provide a webhook URL.\n\nExample: "Webhook add https://myapp.com/events"' };
+  }
+
+  if (!url.startsWith('https://')) {
+    return { text: '❌ Webhook URL must use HTTPS for security.' };
+  }
+
+  try {
+    const webhook = await WebhookService.create({ userId, url, events });
+    return {
+      text:
+        `🔗 *Webhook Registered*\n\n` +
+        `URL: \`${webhook.url}\`\n` +
+        `Events: **${webhook.events.join(', ')}**\n` +
+        `Secret: \`${webhook.secret}\`\n\n` +
+        `Save this secret — it's shown only once!`,
+    };
+  } catch (err) {
+    logger.error('[queryRouter] webhook_create failed', { url, error: err });
+    return { text: '❌ Failed to register webhook. Please try again.' };
+  }
+}
+
+async function handleWebhookList(parsed: ParsedQuery): Promise<QueryResult> {
+  const userId = parsed.userId || 'anonymous';
+
+  try {
+    const webhooks = await WebhookService.listByUser(userId);
+
+    if (webhooks.length === 0) {
+      return { text: '📭 *No Webhooks*\n\nYou have no registered webhooks.\n\nCreate one: "Webhook add https://myapp.com/events"' };
+    }
+
+    let text = `🔗 *Your Webhooks* (${webhooks.length})\n\n`;
+    webhooks.forEach((w, i) => {
+      const status = w.isActive ? '✅' : '❌';
+      text += `${i + 1}. ${status} \`${w.url}\`\n   Events: ${w.events.join(', ')}\n   Failures: ${w.failureCount}\n\n`;
+    });
+
+    return { text };
+  } catch (err) {
+    logger.error('[queryRouter] webhook_list failed', { error: err });
+    return { text: '❌ Failed to list webhooks.' };
+  }
+}
+
+async function handleWebhookDelete(parsed: ParsedQuery): Promise<QueryResult> {
+  const webhookId = parsed.webhookId || parsed.id || '';
+  const userId = parsed.userId || 'anonymous';
+
+  if (!webhookId) {
+    return { text: '❌ Please provide a webhook ID.\n\nExample: "Delete webhook 667123..."' };
+  }
+
+  try {
+    const deleted = await WebhookService.delete(userId, webhookId);
+    if (!deleted) {
+      return { text: '⚠️ Webhook not found or you do not own it.' };
+    }
+    return { text: '🗑️ *Webhook Deleted*\n\nThe webhook has been removed.' };
+  } catch (err) {
+    logger.error('[queryRouter] webhook_delete failed', { webhookId, error: err });
+    return { text: '❌ Failed to delete webhook.' };
+  }
+}
+
+async function handleWebhookTest(parsed: ParsedQuery): Promise<QueryResult> {
+  const webhookId = parsed.webhookId || parsed.id || '';
+
+  if (!webhookId) {
+    return { text: '❌ Please provide a webhook ID.\n\nExample: "Test webhook 667123..."' };
+  }
+
+  try {
+    const webhook = await WebhookService.findById(webhookId);
+    if (!webhook) {
+      return { text: '⚠️ Webhook not found.' };
+    }
+
+    const { emitWebhookEvent } = await import('../webhook');
+    await emitWebhookEvent('wallet.tracked', {
+      message: 'This is a test event from Smart AI Explorer',
+      walletAddress: 'xdc0000000000000000000000000000000000000000',
+      test: true,
+    });
+
+    return { text: '✅ *Test Event Sent*\n\nCheck your endpoint for the payload.' };
+  } catch (err) {
+    logger.error('[queryRouter] webhook_test failed', { webhookId, error: err });
+    return { text: '❌ Failed to send test event.' };
+  }
 }
 
 // ─── Utility Handlers ───────────────────────────────────────

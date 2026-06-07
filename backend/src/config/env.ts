@@ -29,6 +29,10 @@ const envSchema = z.object({
   SMTP_PASS: z.string().min(1, 'SMTP_PASS is required'),
   SMTP_FROM: z.string().email().default('noreply@smartaiexplorer.com'),
   SMTP_SECURE: z.string().default('false').transform((v) => v === 'true'),
+
+  // ── Webhooks ────────────────────────────────────────────────
+  WEBHOOK_MAX_RETRIES: z.string().default('3').transform((v) => parseInt(v, 10)),
+  WEBHOOK_TIMEOUT_MS: z.string().default('10000').transform((v) => parseInt(v, 10)),
 });
 
 const parsed = envSchema.safeParse(process.env);
