@@ -40,6 +40,9 @@ export enum QueryAction {
   LIST_ALERTS = 'list_alerts',
   DELETE_ALERT = 'delete_alert',
 
+  // ── Language & Localization ──────────────────────────────
+  SET_LANGUAGE = 'set_language',
+
   // ── Utility ──────────────────────────────────────────────
   HELP = 'help',
   UNKNOWN = 'unknown',
@@ -113,6 +116,8 @@ export const QUERY_ACTION_DESCRIPTIONS: Record<QueryAction, string> = {
   [QueryAction.CREATE_ALERT]: 'Create a new price or activity alert',
   [QueryAction.LIST_ALERTS]: 'Show your active alerts',
   [QueryAction.DELETE_ALERT]: 'Remove an existing alert',
+
+  [QueryAction.SET_LANGUAGE]: 'Set your preferred language (en/hi/mr)',
 
   [QueryAction.HELP]: 'Show available commands and examples',
   [QueryAction.UNKNOWN]: 'Unrecognized query — try rephrasing',
@@ -198,6 +203,12 @@ export const QUERY_ACTION_EXAMPLES: Record<QueryAction, string[]> = {
   [QueryAction.DELETE_ALERT]: [
     'Delete alert #1',
     'Remove my gas alert',
+  ],
+
+  [QueryAction.SET_LANGUAGE]: [
+    'Set language to Hindi',
+    '/language hi',
+    'मराठीत बोला',
   ],
 
   [QueryAction.HELP]: [

@@ -113,6 +113,9 @@ export async function executeQuery(parsed: ParsedQuery): Promise<QueryResult> {
       return handleDeleteAlert(parsed);
 
     // ── Help ─────────────────────────────────────────────────
+    case QueryAction.SET_LANGUAGE:
+      return handleSetLanguage(parsed);
+
     case QueryAction.HELP:
       return handleHelp();
 
@@ -620,6 +623,32 @@ async function handleDeleteAlert(parsed: ParsedQuery): Promise<QueryResult> {
 }
 
 // ─── Utility Handlers ───────────────────────────────────────
+
+async function handleSetLanguage(parsed: ParsedQuery): Promise<QueryResult> {
+  const { userId, platform, language } = parsed;
+  const lang = language || 'en';
+  
+  if (!['en', 'hi', 'mr'].includes(lang)) {
+    return { text: '❌ Invalid language. Use: en, hi, or mr' };
+  }
+  
+  // Update user preference in DB
+  if (userId && platform) {
+    const { UserModel } = await import('../../models/User');
+    await UserModel.updateOne(
+      { telegramId: parseInt(userId) },
+      { preferredLanguage: lang }
+    );
+  }
+  
+  const messages: Record<string, Record<string, string>> = {
+    en: { en: '✅ Language set to English', hi: '✅ भाषा अंग्रेजी में सेट की गई', mr: '✅ भाषा इंग्रजीमध्ये सेट केली' },
+    hi: { en: '✅ Language set to Hindi', hi: '✅ भाषा हिंदी में सेट की गई', mr: '✅ भाषा हिंदीमध्ये सेट केली' },
+    mr: { en: '✅ Language set to Marathi', hi: '✅ भाषा मराठी में सेट की गई', mr: '✅ भाषा मराठीत सेट केली' },
+  };
+  
+  return { text: messages[lang][lang] };
+}
 
 function handleHelp(): Promise<QueryResult> {
   return Promise.resolve({

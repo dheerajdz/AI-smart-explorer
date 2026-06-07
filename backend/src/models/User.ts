@@ -9,6 +9,7 @@ export interface IUser {
   walletAddress: string;
   plan: 'free' | 'premium';
   isEmailVerified: boolean;
+  preferredLanguage: 'en' | 'hi' | 'mr';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,6 +43,7 @@ export class UserModel {
       ...userData,
       email: userData.email.toLowerCase(),
       walletAddress: userData.walletAddress.toLowerCase(),
+      preferredLanguage: userData.preferredLanguage || 'en',
       createdAt: now,
       updatedAt: now,
     };

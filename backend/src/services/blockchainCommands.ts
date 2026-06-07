@@ -500,6 +500,41 @@ export async function cmdDeleteAlert(alertId: string, userId: string): Promise<C
   }
 }
 
+export async function cmdSetLanguage(userId: string, lang: string): Promise<CommandResult> {
+  const validLangs = ['en', 'hi', 'mr'];
+  if (!validLangs.includes(lang)) {
+    return {
+      success: false,
+      text: '❌ Invalid language. Use: en, hi, or mr',
+    };
+  }
+
+  try {
+    const { UserModel } = await import('../models/User');
+    await UserModel.updateOne(
+      { telegramId: parseInt(userId) },
+      { preferredLanguage: lang }
+    );
+
+    const messages: Record<string, Record<string, string>> = {
+      en: { en: '✅ Language set to English', hi: '✅ भाषा अंग्रेजी में सेट की गई', mr: '✅ भाषा इंग्रजीमध्ये सेट केली' },
+      hi: { en: '✅ Language set to Hindi', hi: '✅ भाषा हिंदी में सेट की गई', mr: '✅ भाषा हिंदीमध्ये सेट केली' },
+      mr: { en: '✅ Language set to Marathi', hi: '✅ भाषा मराठी में सेट की गई', mr: '✅ भाषा मराठीत सेट केली' },
+    };
+
+    return {
+      success: true,
+      text: messages[lang][lang],
+    };
+  } catch (err) {
+    logger.error('cmdSetLanguage failed', { error: err });
+    return {
+      success: false,
+      text: '❌ Failed to set language. Please try again.',
+    };
+  }
+}
+
 export function cmdHelp(): CommandResult {
   return {
     success: true,
@@ -517,7 +552,7 @@ export function cmdHelp(): CommandResult {
       `• \`/tx xdc...\` — Show last 5 transactions\n` +
       `• \`/activity xdc...\` — Wallet activity stats\n` +
       `• \`/failed xdc...\` — Failed transactions\n` +
-      `• \`/large xdc...\` — Large transfers (\u003e1000 XDC)\n\n` +
+      `• \`/large xdc...\` — Large transfers (>1000 XDC)\n\n` +
 
       `*Tracking Commands:*\n` +
       `• \`/track xdc...\` — Track wallet for alerts\n` +
@@ -529,6 +564,11 @@ export function cmdHelp(): CommandResult {
       `• \`/block 12345\` — Block info\n` +
       `• \`/status\` — Network status\n` +
       `• \`/price\` — XDC price (coming soon)\n\n` +
+
+      `*Language Commands:*\n` +
+      `• \`/language en\` — English\n` +
+      `• \`/language hi\` — Hindi\n` +
+      `• \`/language mr\` — Marathi\n\n` +
 
       `*Keyword Shortcuts (no slash):*\n` +
       `• \`b xdc...\` — Same as /balance\n` +

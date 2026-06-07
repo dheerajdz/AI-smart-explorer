@@ -16,8 +16,8 @@ import {
   cmdLargeTransfers,
   cmdPrice,
   cmdStatus,
-  cmdHelp,
   cmdListAlerts,
+  cmdSetLanguage,
   cmdCreateAlert,
   cmdDeleteAlert,
 } from '../../services/blockchainCommands';
@@ -113,6 +113,11 @@ export async function commandRouter(
 
     case '/alerts':
       return { text: (await cmdListAlerts(userId)).text, parseMode: 'markdown' };
+
+    case '/language': {
+      const lang = args[0] || 'en';
+      return { text: (await cmdSetLanguage(userId, lang)).text, parseMode: 'markdown' };
+    }
 
     case '/alert': {
       if (!address) {
