@@ -56,7 +56,8 @@ export async function cmdBalance(address: string, network?: Network): Promise<Co
         `Network: ${detectedNetwork === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
         `Address: \`${data.address}\`\n` +
         `Balance: **${data.balanceXDC} ${detectedNetwork === 'testnet' ? 'TXDC' : 'XDC'}**\n\n` +
-        `[View on Explorer](${data.explorerUrl})`,
+        `[View on Explorer](${data.explorerUrl})\n\n` +
+        `_💡 Tip: Use /reputation ${address} to see reputation score_`,
       rawData: data,
     };
   } catch (err) {
@@ -303,7 +304,8 @@ export async function cmdWalletActivity(address: string): Promise<CommandResult>
         `First Seen: ${data.firstSeen ? new Date(data.firstSeen).toLocaleDateString() : 'N/A'}\n` +
         `Last Seen: ${data.lastSeen ? new Date(data.lastSeen).toLocaleDateString() : 'N/A'}\n` +
         `Contracts Interacted: **${data.uniqueContractsInteracted}**\n\n` +
-        `[View on Explorer](${explorerUrl})`,
+        `[View on Explorer](${explorerUrl})\n\n` +
+        `_💡 Tip: Use /reputation ${address} to see reputation score_`,
       rawData: data,
     };
   } catch (err) {
