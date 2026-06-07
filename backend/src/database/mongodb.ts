@@ -5,6 +5,8 @@ import { UserModel } from '../models/User';
 import { ConnectedWalletModel } from '../models/ConnectedWallet';
 import { TrackedWalletModel } from '../models/TrackedWallet';
 import { ActivityLogModel } from '../models/ActivityLog';
+import { AlertModel } from '../models/Alert';
+import { WalletPollStateModel } from '../models/WalletPollState';
 
 let client: MongoClient | null = null;
 let db: Db | null = null;
@@ -46,6 +48,8 @@ async function setupIndexes(): Promise<void> {
     await ConnectedWalletModel.createIndexes();
     await TrackedWalletModel.createIndexes();
     await ActivityLogModel.createIndexes();
+    await AlertModel.createIndexes();
+    await WalletPollStateModel.createIndexes();
     logger.info('✅ All indexes created');
   } catch (err) {
     logger.error('❌ Failed to create indexes:', err);

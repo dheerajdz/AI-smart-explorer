@@ -3,6 +3,7 @@ import { logger } from '../../utils/logger';
 import { connectWallet, disconnectWallet, getConnectedWallet } from '../../services/connectedWalletService';
 import { isValidXdcAddress, detectNetwork } from '../../utils/network';
 import { ActivityLogModel } from '../../models/ActivityLog';
+import { AlertPlatform } from '../../models/Alert';
 import {
   cmdBalance,
   cmdTransactions,
@@ -17,6 +18,10 @@ import {
   cmdPrice,
   cmdStatus,
   cmdHelp,
+  cmdAlertCreate,
+  cmdAlertList,
+  cmdAlertDelete,
+  cmdContractDeployments,
 } from '../../services/blockchainCommands';
 
 export async function commandRouter(
@@ -126,6 +131,54 @@ export async function commandRouter(
           : '⚠️ No wallet found to disconnect.',
         parseMode: 'markdown',
       };
+
+    case '/deploys': {
+      const addr = address || (await getConnectedAddress(platform, userId));
+      if (!addr) return { text: 'Usage: /deploys <address>\n\nOr connect a wallet first.' };
+      return { text: (await cmdContractDeployments(addr, 5)).text, parseMode: 'markdown' };
+    }
+
+    case '/alert': {
+      const subCommand = args[0] || '';
+      const alertType = args[1] || '';
+      const alertAddress = args[2] || (await getConnectedAddress(platform, userId));
+
+      if (!subCommand) {
+        return {
+          text:
+            '🔔 *Alert Commands*\n\n' +
+            '• \`/alert create new_tx xdc...\` — Notify on new transactions\n' +
+            '• \`/alert create failed_tx xdc...\` — Notify on failed transactions\n' +
+            '• \`/alert create contract_deploy xdc...\` — Notify on contract deployments\n' +
+            '• \`/alert list\` — Show your alerts\n' +
+            '• \`/alert delete <id>\` — Remove an alert',
+          parseMode: 'markdown',
+        };
+      }
+
+      if (subCommand === 'create') {
+        if (!['new_tx', 'failed_tx', 'contract_deploy'].includes(alertType)) {
+          return { text: '❌ Invalid alert type. Use: new_tx, failed_tx, or contract_deploy' };
+        }
+        if (!alertAddress) return { text: 'Usage: /alert create <type> <address>' };
+        const result = await cmdAlertCreate(userId, platform as AlertPlatform, alertType as any, alertAddress);
+        return { text: result.text, parseMode: 'markdown' };
+      }
+
+      if (subCommand === 'list') {
+        const result = await cmdAlertList(userId, platform as AlertPlatform);
+        return { text: result.text, parseMode: 'markdown' };
+      }
+
+      if (subCommand === 'delete') {
+        const alertId = args[1] || '';
+        if (!alertId) return { text: 'Usage: /alert delete <alert_id>' };
+        const result = await cmdAlertDelete(alertId, userId);
+        return { text: result.text, parseMode: 'markdown' };
+      }
+
+      return { text: 'Unknown alert subcommand. Use: create, list, or delete.' };
+    }
 
     default:
       return { text: 'Unknown command. Type /help for available commands.' };
