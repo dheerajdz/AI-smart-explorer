@@ -39,7 +39,8 @@ export async function generateWelcome(platform: Platform, userId: string): Promi
         `• "Activity"\n` +
         `• "Gas price"\n` +
         `• "Track this wallet"\n` +
-        `• "Disconnect wallet"`,
+        `• "Disconnect wallet"\n\n` +
+        `💎 *Billing:* /subscription · /upgrade · /billing`,
       parseMode: 'markdown',
     };
   }
@@ -72,7 +73,8 @@ export async function generateWelcome(platform: Platform, userId: string): Promi
       `• "Gas price"\n` +
       `• "Track wallet xdc..."\n\n` +
       `To get started, connect your wallet:\n` +
-      `👉 Send: *connect wallet*`,
+      `👉 Send: *connect wallet*\n\n` +
+      `💎 *Billing:* /subscription · /upgrade · /billing`,
     parseMode: 'markdown',
   };
 }
