@@ -1,5 +1,6 @@
 import { getDb } from '../database/mongodb';
 import { logger } from '../utils/logger';
+import { SupportedLanguage } from '../services/i18n';
 
 export interface IUser {
   _id?: string;
@@ -9,6 +10,7 @@ export interface IUser {
   walletAddress: string;
   plan: 'free' | 'premium';
   isEmailVerified: boolean;
+  preferredLanguage: SupportedLanguage;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,6 +44,7 @@ export class UserModel {
       ...userData,
       email: userData.email.toLowerCase(),
       walletAddress: userData.walletAddress.toLowerCase(),
+      preferredLanguage: userData.preferredLanguage || 'en',
       createdAt: now,
       updatedAt: now,
     };
@@ -59,6 +62,18 @@ export class UserModel {
       $set: { ...update, updatedAt: new Date() },
     });
     return result.modifiedCount > 0;
+  }
+
+  static async updateLanguage(
+    telegramId: number,
+    language: SupportedLanguage
+  ): Promise<boolean> {
+    return this.updateOne({ telegramId }, { preferredLanguage: language });
+  }
+
+  static async findByTelegramIdWithLanguage(telegramId: number): Promise<{ user: IUser | null; language: SupportedLanguage }> {
+    const user = await this.findByTelegramId(telegramId);
+    return { user, language: user?.preferredLanguage || 'en' };
   }
 
   static async deleteOne(filter: Partial<IUser>): Promise<boolean> {
