@@ -1,4 +1,5 @@
 import { Telegraf, Context } from 'telegraf';
+import * as https from 'https';
 import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 import {
@@ -25,11 +26,60 @@ import {
   handleSettingsNotifications,
 } from './walletConnect';
 import { handleTelegramMessage } from './adapter';
-
 import { portfolioCommand } from './commands/portfolioCommand';
 
+// FIX: Force IPv4 for WSL — node-fetch hangs on IPv6
+const agent = new https.Agent({ family: 4 });
+const token = env.TELEGRAM_BOT_TOKEN;
+
+// Helper to send message via native https (bypasses node-fetch hang)
+export function sendTelegramMessage(chatId: number, text: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify({ chat_id: chatId, text });
+    const req = https.request(
+      {
+        hostname: 'api.telegram.org',
+        path: `/bot${token}/sendMessage`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(data),
+        },
+        agent,
+        timeout: 10000,
+      },
+      (res) => {
+        let body = '';
+        res.on('data', (chunk) => (body += chunk));
+        res.on('end', () => {
+          try {
+            const result = JSON.parse(body);
+            if (result.ok) {
+              console.log('[bot] reply sent to', chatId);
+              resolve();
+            } else {
+              reject(new Error(result.description));
+            }
+          } catch {
+            reject(new Error('Invalid response'));
+          }
+        });
+      }
+    );
+    req.on('error', (e) => reject(e));
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('timeout'));
+    });
+    req.write(data);
+    req.end();
+  });
+}
+
 export function createBot(): Telegraf {
-  const bot = new Telegraf(env.TELEGRAM_BOT_TOKEN);
+  const bot = new Telegraf(token, {
+    telegram: { agent: agent as any },
+  });
 
   /* -------------------- Commands -------------------- */
   bot.command('start', startCommand);
@@ -63,23 +113,23 @@ export function createBot(): Telegraf {
 
   /* -------------------- Dashboard callbacks (placeholders) -------------------- */
   bot.action('dashboard_wallet', async (ctx: Context) => {
-    await ctx.reply('💼 Wallet view is coming soon!');
+    await sendTelegramMessage(ctx.chat!.id, 'Wallet view is coming soon!');
     await ctx.answerCbQuery();
   });
   bot.action('dashboard_transactions', async (ctx: Context) => {
-    await ctx.reply('📊 Transactions view is coming soon!');
+    await sendTelegramMessage(ctx.chat!.id, 'Transactions view is coming soon!');
     await ctx.answerCbQuery();
   });
   bot.action('dashboard_analyze', async (ctx: Context) => {
-    await ctx.reply('🔍 Analyze Wallet is coming soon!');
+    await sendTelegramMessage(ctx.chat!.id, 'Analyze Wallet is coming soon!');
     await ctx.answerCbQuery();
   });
   bot.action('dashboard_track', async (ctx: Context) => {
-    await ctx.reply('🔔 Track Wallet is coming soon!');
+    await sendTelegramMessage(ctx.chat!.id, 'Track Wallet is coming soon!');
     await ctx.answerCbQuery();
   });
   bot.action('dashboard_profile', async (ctx: Context) => {
-    await ctx.reply('👤 Profile view is coming soon!');
+    await sendTelegramMessage(ctx.chat!.id, 'Profile view is coming soon!');
     await ctx.answerCbQuery();
   });
 
