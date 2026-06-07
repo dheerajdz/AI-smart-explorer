@@ -256,10 +256,20 @@ export async function handleMenuAskAI(ctx: Context): Promise<void> {
 /* ------------------------------------------------------------------ */
 
 export async function handleMenuSettings(ctx: Context): Promise<void> {
-  const text = '⚙️ *Settings*\n\nWhat would you like to do?';
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  // Get user's current language preference
+  const { UserModel } = await import('../../models/User');
+  const user = await UserModel.findByTelegramId(telegramId);
+  const currentLang = user?.preferredLanguage || 'en';
+  const langNames: Record<string, string> = { en: 'English', hi: 'Hindi', mr: 'Marathi' };
+
+  const text = `⚙️ *Settings*\n\nCurrent language: **${langNames[currentLang]}**\n\nWhat would you like to do?`;
 
   const keyboard = Markup.inlineKeyboard([
     [Markup.button.callback('🔔 Notification Settings', 'settings_notifications')],
+    [Markup.button.callback('🌐 Language', 'settings_language')],
     [Markup.button.callback('❌ Disconnect Wallet', 'settings_disconnect')],
     [Markup.button.callback('⬅️ Back to Main Menu', 'menu_back')],
   ]);
@@ -319,6 +329,54 @@ export async function handleSettingsNotifications(ctx: Context): Promise<void> {
     '🔔 *Manage Alerts*\n\nCreate alerts for price, gas, transactions, and more.',
     { parse_mode: 'Markdown', ...keyboard }
   );
+  await ctx.answerCbQuery();
+}
+
+export async function handleSettingsLanguage(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const text =
+    `🌐 *Select Language*\n\n` +
+    `Choose your preferred language:`;
+
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('🇬🇧 English', 'language_en')],
+    [Markup.button.callback('🇮🇳 Hindi', 'language_hi')],
+    [Markup.button.callback('🇮🇳 Marathi', 'language_mr')],
+    [Markup.button.callback('⬅️ Back to Settings', 'menu_settings')],
+  ]);
+
+  await ctx.reply(text, { parse_mode: 'Markdown', ...keyboard });
+  await ctx.answerCbQuery();
+}
+
+export async function handleLanguageSelection(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const callbackData = (ctx as any).callbackQuery?.data;
+  const lang = callbackData?.replace('language_', '') || 'en';
+
+  try {
+    const { UserModel } = await import('../../models/User');
+    await UserModel.updateOne(
+      { telegramId },
+      { preferredLanguage: lang }
+    );
+
+    const messages: Record<string, string> = {
+      en: '✅ Language set to English',
+      hi: '✅ भाषा हिंदी में सेट की गई',
+      mr: '✅ भाषा मराठीत सेट केली',
+    };
+
+    await ctx.reply(messages[lang] || messages['en'], { parse_mode: 'Markdown' });
+  } catch (err) {
+    logger.error('handleLanguageSelection failed', { error: err });
+    await ctx.reply('❌ Failed to set language. Please try again.');
+  }
+
   await ctx.answerCbQuery();
 }
 

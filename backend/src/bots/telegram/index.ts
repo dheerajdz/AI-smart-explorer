@@ -25,6 +25,8 @@ import {
   handleSettingsNotifications,
   handleMenuAlerts,
   handleAlertCreate,
+  handleSettingsLanguage,
+  handleLanguageSelection,
 } from './walletConnect';
 import { handleTelegramMessage } from './adapter';
 
@@ -58,8 +60,14 @@ export function createBot(): Telegraf {
 
   /* -------------------- Settings -------------------- */
   bot.action('settings_notifications', handleSettingsNotifications);
+  bot.action('settings_language', handleSettingsLanguage);
   bot.action('settings_disconnect', handleSettingsDisconnect);
   bot.action('disconnect_confirm', handleDisconnectConfirm);
+
+  /* -------------------- Language -------------------- */
+  bot.action('language_en', handleLanguageSelection);
+  bot.action('language_hi', handleLanguageSelection);
+  bot.action('language_mr', handleLanguageSelection);
 
   /* -------------------- Alert actions -------------------- */
   bot.action('alert_create', handleAlertCreate);
