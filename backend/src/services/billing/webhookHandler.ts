@@ -7,6 +7,29 @@ import {
 import { logger } from '../../utils/logger';
 import Stripe from 'stripe';
 
+async function notifyUser(userId: string, platform: string, tier: string): Promise<void> {
+  if (platform === 'telegram') {
+    try {
+      const { getBotInstance } = await import('../../services/notification/telegramNotify');
+      const bot = getBotInstance();
+      if (bot) {
+        await bot.telegram.sendMessage(userId,
+          `🎉 *Payment Successful!*\n\n` +
+          `Your subscription has been upgraded to *${tier.toUpperCase()}*.\n\n` +
+          `✅ Unlimited alerts\n` +
+          `✅ More tracked wallets\n` +
+          `✅ Priority support\n\n` +
+          `Use /subscription to see your new limits.`,
+          { parse_mode: 'Markdown' }
+        );
+        logger.info('[billingWebhook] Notified user of upgrade', { userId, tier });
+      }
+    } catch (err) {
+      logger.error('[billingWebhook] Failed to notify user', { userId, tier, error: err });
+    }
+  }
+}
+
 export async function handleStripeWebhook(payload: string | Buffer, signature: string): Promise<{ success: boolean; message: string }> {
   const event = await constructWebhookEvent(payload, signature);
 
@@ -76,6 +99,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session):
     new Date(subscription.current_period_start * 1000),
     new Date(subscription.current_period_end * 1000)
   );
+
+  // Notify user
+  await notifyUser(userId, platform, tier);
 }
 
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
