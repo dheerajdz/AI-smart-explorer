@@ -2,6 +2,7 @@ import { Platform, BotResponse } from './types';
 import { logger } from '../../utils/logger';
 import { connectWallet, disconnectWallet, getConnectedWallet } from '../../services/connectedWalletService';
 import { isValidXdcAddress, detectNetwork } from '../../utils/network';
+import { ActivityLogModel } from '../../models/ActivityLog';
 import {
   cmdBalance,
   cmdTransactions,
@@ -83,11 +84,25 @@ export async function commandRouter(
     case '/track': {
       const addr = address || (await getConnectedAddress(platform, userId));
       if (!addr) return { text: 'Usage: /track <address>\n\nOr connect a wallet first.' };
+      await ActivityLogModel.create({
+        userId,
+        platform,
+        action: 'track_wallet',
+        input: addr,
+        metadata: { address: addr },
+      });
       return { text: cmdTrack(addr, userId).text, parseMode: 'markdown' };
     }
 
     case '/untrack':
       if (!address) return { text: 'Usage: /untrack <address>' };
+      await ActivityLogModel.create({
+        userId,
+        platform,
+        action: 'untrack_wallet',
+        input: address,
+        metadata: { address },
+      });
       return { text: cmdUntrack(address, userId).text, parseMode: 'markdown' };
 
     case '/list':
@@ -95,6 +110,12 @@ export async function commandRouter(
 
     case '/disconnect':
       const result = await disconnectWallet(userId, platform);
+      await ActivityLogModel.create({
+        userId,
+        platform,
+        action: result.success ? 'wallet_disconnect' : 'wallet_disconnect_failed',
+        metadata: { success: result.success },
+      });
       return {
         text: result.success
           ? '✅ *Wallet Disconnected*\n\nYour wallet has been removed. Send /start to connect a new one.'
@@ -125,6 +146,15 @@ export async function handleAddressOnly(
 
   const connectResult = await connectWallet(userId, platform, address);
   const balanceResult = await cmdBalance(address);
+
+  await ActivityLogModel.create({
+    userId,
+    platform,
+    action: connectResult.success ? 'wallet_connect' : 'wallet_connect_failed',
+    input: address,
+    output: connectResult.message.substring(0, 200),
+    metadata: { address, success: connectResult.success },
+  });
 
   return {
     text:
