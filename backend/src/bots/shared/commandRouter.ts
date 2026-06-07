@@ -3,6 +3,9 @@ import { logger } from '../../utils/logger';
 import { connectWallet, disconnectWallet, getConnectedWallet } from '../../services/connectedWalletService';
 import { isValidXdcAddress, detectNetwork } from '../../utils/network';
 import { ActivityLogModel } from '../../models/ActivityLog';
+import { AlertPlatform } from '../../models/Alert';
+import { UserModel } from '../../models/User';
+import { SUPPORTED_LANGUAGES } from '../../services/i18n';
 import {
   cmdBalance,
   cmdTransactions,
@@ -17,6 +20,10 @@ import {
   cmdPrice,
   cmdStatus,
   cmdHelp,
+  cmdAlertCreate,
+  cmdAlertList,
+  cmdAlertDelete,
+  cmdContractDeployments,
 } from '../../services/blockchainCommands';
 
 export async function commandRouter(
@@ -29,6 +36,11 @@ export async function commandRouter(
   const address = args[0] || '';
 
   logger.info('[commandRouter]', { platform, userId, command: normalized, args });
+
+  // ─── Language Command ───────────────────────────────────────
+  if (normalized === '/language' || normalized === '/lang') {
+    return await handleLanguageCommand(platform, userId, args);
+  }
 
   switch (normalized) {
     case '/start':
@@ -91,7 +103,8 @@ export async function commandRouter(
         input: addr,
         metadata: { address: addr },
       });
-      return { text: cmdTrack(addr, userId).text, parseMode: 'markdown' };
+      const trackResult = await cmdTrack(addr, userId, platform);
+      return { text: trackResult.text, parseMode: 'markdown' };
     }
 
     case '/untrack':
@@ -103,10 +116,13 @@ export async function commandRouter(
         input: address,
         metadata: { address },
       });
-      return { text: cmdUntrack(address, userId).text, parseMode: 'markdown' };
+      const untrackResult = await cmdUntrack(address, userId);
+      return { text: untrackResult.text, parseMode: 'markdown' };
 
-    case '/list':
-      return { text: cmdList(userId).text, parseMode: 'markdown' };
+    case '/list': {
+      const listResult = await cmdList(userId);
+      return { text: listResult.text, parseMode: 'markdown' };
+    }
 
     case '/disconnect':
       const result = await disconnectWallet(userId, platform);
@@ -123,6 +139,54 @@ export async function commandRouter(
         parseMode: 'markdown',
       };
 
+    case '/deploys': {
+      const addr = address || (await getConnectedAddress(platform, userId));
+      if (!addr) return { text: 'Usage: /deploys <address>\n\nOr connect a wallet first.' };
+      return { text: (await cmdContractDeployments(addr, 5)).text, parseMode: 'markdown' };
+    }
+
+    case '/alert': {
+      const subCommand = args[0] || '';
+      const alertType = args[1] || '';
+      const alertAddress = args[2] || (await getConnectedAddress(platform, userId));
+
+      if (!subCommand) {
+        return {
+          text:
+            '🔔 *Alert Commands*\n\n' +
+            '• \`/alert create new_tx xdc...\` — Notify on new transactions\n' +
+            '• \`/alert create failed_tx xdc...\` — Notify on failed transactions\n' +
+            '• \`/alert create contract_deploy xdc...\` — Notify on contract deployments\n' +
+            '• \`/alert list\` — Show your alerts\n' +
+            '• \`/alert delete <id>\` — Remove an alert',
+          parseMode: 'markdown',
+        };
+      }
+
+      if (subCommand === 'create') {
+        if (!['new_tx', 'failed_tx', 'contract_deploy'].includes(alertType)) {
+          return { text: '❌ Invalid alert type. Use: new_tx, failed_tx, or contract_deploy' };
+        }
+        if (!alertAddress) return { text: 'Usage: /alert create <type> <address>' };
+        const result = await cmdAlertCreate(userId, platform as AlertPlatform, alertType as any, alertAddress);
+        return { text: result.text, parseMode: 'markdown' };
+      }
+
+      if (subCommand === 'list') {
+        const result = await cmdAlertList(userId, platform as AlertPlatform);
+        return { text: result.text, parseMode: 'markdown' };
+      }
+
+      if (subCommand === 'delete') {
+        const alertId = args[1] || '';
+        if (!alertId) return { text: 'Usage: /alert delete <alert_id>' };
+        const result = await cmdAlertDelete(alertId, userId);
+        return { text: result.text, parseMode: 'markdown' };
+      }
+
+      return { text: 'Unknown alert subcommand. Use: create, list, or delete.' };
+    }
+
     default:
       return { text: 'Unknown command. Type /help for available commands.' };
   }
@@ -133,6 +197,68 @@ async function getConnectedAddress(platform: Platform, userId: string): Promise<
   if (!wallet) return '';
   const prefix = wallet.network === 'testnet' ? 'txdc' : 'xdc';
   return wallet.address.startsWith('0x') ? `${prefix}${wallet.address.slice(2)}` : wallet.address;
+}
+
+/**
+ * Handle /language or /lang command.
+ * Updates user preference in database.
+ */
+async function handleLanguageCommand(
+  platform: Platform,
+  userId: string,
+  args: string[]
+): Promise<BotResponse> {
+  const lang = args[0]?.toLowerCase();
+
+  // Show current language if no argument
+  if (!lang) {
+    const user = await UserModel.findOne({ telegramId: Number(userId) });
+    const currentLang = user?.preferredLanguage || 'en';
+
+    const langNames: Record<string, string> = {
+      en: 'English 🇬🇧',
+      hi: 'Hindi 🇮🇳',
+      mr: 'Marathi 🇮🇳',
+    };
+
+    return {
+      text: `🌐 *Language Settings*\n\nCurrent: ${langNames[currentLang] || currentLang}\n\nAvailable languages:\n• /language en - English\n• /language hi - हिंदी\n• /language mr - मराठी`,
+      parseMode: 'markdown',
+    };
+  }
+
+  // Validate language
+  if (!SUPPORTED_LANGUAGES.includes(lang as any)) {
+    return {
+      text: `❌ Invalid language: "${lang}"\n\nAvailable languages:\n• /language en - English\n• /language hi - हिंदी\n• /language mr - मराठी`,
+      parseMode: 'markdown',
+    };
+  }
+
+  // Update in database
+  try {
+    const numericId = Number(userId);
+    if (!isNaN(numericId)) {
+      await UserModel.updateLanguage(numericId, lang as any);
+    }
+
+    const confirmations: Record<string, string> = {
+      en: '✅ Language set to English',
+      hi: '✅ भाषा हिंदी में सेट की गई',
+      mr: '✅ भाषा मराठीत सेट केली',
+    };
+
+    return {
+      text: confirmations[lang] || `✅ Language set to ${lang}`,
+      parseMode: 'markdown',
+    };
+  } catch (err) {
+    logger.error('Failed to update language preference', { userId, lang, error: err });
+    return {
+      text: '❌ Failed to update language preference. Please try again.',
+      parseMode: 'markdown',
+    };
+  }
 }
 
 export async function handleAddressOnly(

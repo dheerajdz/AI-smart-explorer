@@ -163,7 +163,8 @@ export async function keywordRouter(
         parseMode: 'markdown',
       };
     }
-    return { text: cmdTrack(target, userId).text, parseMode: 'markdown' };
+    const result = await cmdTrack(target, userId);
+    return { text: result.text, parseMode: 'markdown' };
   }
 
   // ─── 12. Untrack ────────────────────────────────────────────
@@ -177,12 +178,14 @@ export async function keywordRouter(
         parseMode: 'markdown',
       };
     }
-    return { text: cmdUntrack(addr, userId).text, parseMode: 'markdown' };
+    const result = await cmdUntrack(addr, userId);
+    return { text: result.text, parseMode: 'markdown' };
   }
 
   // ─── 13. List tracked ───────────────────────────────────────
   if (lower.includes('list') || lower.includes('tracked') || lower.includes('my wallets')) {
-    return { text: cmdList(userId).text, parseMode: 'markdown' };
+    const result = await cmdList(userId);
+    return { text: result.text, parseMode: 'markdown' };
   }
 
   // ─── 14. Connect wallet ─────────────────────────────────────

@@ -1,6 +1,12 @@
 import { MongoClient, ServerApiVersion, Db } from 'mongodb';
 import { logger } from '../utils/logger';
 import { env } from '../config/env';
+import { UserModel } from '../models/User';
+import { ConnectedWalletModel } from '../models/ConnectedWallet';
+import { TrackedWalletModel } from '../models/TrackedWallet';
+import { ActivityLogModel } from '../models/ActivityLog';
+import { AlertModel } from '../models/Alert';
+import { WalletPollStateModel } from '../models/WalletPollState';
 
 let client: MongoClient | null = null;
 let db: Db | null = null;
@@ -25,10 +31,29 @@ export async function connectMongo(): Promise<Db> {
     const collections = await db.listCollections().toArray();
     logger.info(`Collections: ${collections.map((c) => c.name).join(', ') || 'none yet'}`);
 
+    // Create indexes for all collections
+    await setupIndexes();
+
     return db;
   } catch (err) {
     logger.error('❌ MongoDB connection error:', err);
     process.exit(1);
+  }
+}
+
+async function setupIndexes(): Promise<void> {
+  try {
+    logger.info('Setting up database indexes...');
+    await UserModel.createIndexes();
+    await ConnectedWalletModel.createIndexes();
+    await TrackedWalletModel.createIndexes();
+    await ActivityLogModel.createIndexes();
+    await AlertModel.createIndexes();
+    await WalletPollStateModel.createIndexes();
+    logger.info('✅ All indexes created');
+  } catch (err) {
+    logger.error('❌ Failed to create indexes:', err);
+    // Don't exit — indexes may already exist
   }
 }
 

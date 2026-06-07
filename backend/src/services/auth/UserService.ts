@@ -1,4 +1,5 @@
 import { IUser, UserModel } from '../../models/User';
+import { PlanTier } from '../../types';
 import { logger } from '../../utils/logger';
 
 export interface DashboardPayload {
@@ -21,9 +22,9 @@ export interface DashboardPayload {
   profile: {
     telegramId: number;
     telegramUsername?: string;
-    email: string;
-    walletAddress: string;
-    plan: string;
+    email?: string;
+    walletAddress?: string;
+    plan: PlanTier;
     createdAt: Date;
   };
 }
@@ -35,7 +36,7 @@ export class UserService {
   static buildDashboardPayload(user: IUser): DashboardPayload {
     return {
       wallet: {
-        address: user.walletAddress,
+        address: user.walletAddress || '',
         network: 'xdc',
       },
       transactions: {
@@ -71,7 +72,7 @@ export class UserService {
   /**
    * Update user plan
    */
-  static async updatePlan(telegramId: number, plan: 'free' | 'premium'): Promise<IUser | null> {
+  static async updatePlan(telegramId: number, plan: PlanTier): Promise<IUser | null> {
     try {
       const updated = await UserModel.updateOne({ telegramId }, { plan });
       if (updated) {

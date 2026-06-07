@@ -461,8 +461,9 @@ async function processSignupWallet(ctx: Context, telegramId: number, walletAddre
       telegramUsername: state.telegramUsername || undefined,
       email: state.email.toLowerCase(),
       walletAddress: walletAddress.trim().toLowerCase(),
-      plan: 'free',
+      plan: 'FREE',
       isEmailVerified: true,
+      preferredLanguage: 'en',
     });
 
     await ConversationStateService.clearState(telegramId);
@@ -588,7 +589,7 @@ export async function trackCommand(ctx: Context): Promise<void> {
     return;
   }
 
-  const result = cmdTrack(address, String(telegramId));
+  const result = await cmdTrack(address, String(telegramId));
   await ctx.reply(result.text, { parse_mode: 'Markdown' });
 }
 
@@ -603,13 +604,13 @@ export async function untrackCommand(ctx: Context): Promise<void> {
     return;
   }
 
-  const result = cmdUntrack(address, String(telegramId));
+  const result = await cmdUntrack(address, String(telegramId));
   await ctx.reply(result.text, { parse_mode: 'Markdown' });
 }
 
 export async function listCommand(ctx: Context): Promise<void> {
   const telegramId = ctx.from?.id;
-  const result = cmdList(String(telegramId));
+  const result = await cmdList(String(telegramId));
   await ctx.reply(result.text, { parse_mode: 'Markdown' });
 }
 
@@ -736,14 +737,14 @@ async function handleKeywordShortcut(
 
     case 'track':
       if (!address) return null;
-      return cmdTrack(address, userId).text;
+      return (await cmdTrack(address, userId)).text;
 
     case 'untrack':
       if (!address) return null;
-      return cmdUntrack(address, userId).text;
+      return (await cmdUntrack(address, userId)).text;
 
     case 'list':
-      return cmdList(userId).text;
+      return (await cmdList(userId)).text;
 
     case 'activity':
       if (!address) return null;

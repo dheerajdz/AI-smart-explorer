@@ -9,6 +9,7 @@ export {
   getBlockByNumber,
   getFailedTransactions,
   getFailedContractDeployments,
+  XDCScanError,
   type WalletBalanceResponse,
   type TransactionsResponse,
   type WalletActivity,

@@ -1,45 +1,61 @@
 import { logger } from '../utils/logger';
 import { keywordRouter } from './keywordRouter';
+import { commandHandler } from './commandHandler';
+import { parseQuery, executeQuery, QueryResult } from './ai';
 
 export interface RouterResponse {
   text: string;
+  language?: string;
 }
 
 /**
  * Route incoming messages to the appropriate handler.
  *
- * NOTE: Slash commands are handled directly by each bot
- * (Telegram via bot.command(), WhatsApp via messageHandler).
- * This function only handles natural language messages.
+ * Strategy: Slash commands go to commandHandler (supports /plans, /myplan, /admin),
+ * then try AI parsing (natural language), falling back to keyword router.
  *
- * Strategy: Try AI parsing first (natural language), fall back to
- * keyword router if AI fails or is unavailable.
+ * Language Flow:
+ *   1. Detect language from message
+ *   2. Parse query with language context
+ *   3. Execute query
+ *   4. Return response with language for translation
  */
 export async function messageRouter(
   message: string,
-  userId: string
+  userId: string,
+  userPreferredLanguage?: string,
+  telegramId?: number
 ): Promise<RouterResponse> {
   const trimmedMessage = message.trim();
 
-  logger.info('Routing message', { userId, message: trimmedMessage });
+  logger.info('Routing message', { userId, message: trimmedMessage, userPreferredLanguage, telegramId });
+
+  // ─── Slash commands ─────────────────────────────────────────
+  if (trimmedMessage.startsWith('/')) {
+    const parts = trimmedMessage.split(/\s+/);
+    const command = parts[0];
+    const args = parts.slice(1);
+
+    return commandHandler(command, args, userId, telegramId);
+  }
 
   // ─── AI routing (primary) ───────────────────────────────────
   try {
-    const { parseQuery, executeQuery } = await import('./ai');
     const { detectNetwork } = await import('../utils/network');
 
     const addressMatch = trimmedMessage.match(/\b(xdc[0-9a-fA-F]{40}|txdc[0-9a-fA-F]{40}|0x[0-9a-fA-F]{40})\b/);
     const detectedNetwork = addressMatch ? detectNetwork(addressMatch[0]) : 'mainnet';
 
-    const parsed = await parseQuery(trimmedMessage);
+    // Parse with language detection
+    const parsed = await parseQuery(trimmedMessage, userPreferredLanguage);
 
     // If AI parsed successfully with a known action, execute it
     if (parsed.action !== 'unknown') {
       parsed.network = parsed.network || detectedNetwork;
 
       const result = await executeQuery(parsed);
-      logger.info('[messageRouter] AI routing success', { action: parsed.action });
-      return { text: result.text };
+      logger.info('[messageRouter] AI routing success', { action: parsed.action, language: parsed.language });
+      return { text: result.text, language: parsed.language };
     }
 
     // Parsed as unknown — fall through to keyword router
@@ -49,5 +65,6 @@ export async function messageRouter(
   }
 
   // ─── Keyword-based routing (fallback) ───────────────────────
-  return keywordRouter(trimmedMessage, userId);
+  const keywordResult = await keywordRouter(trimmedMessage, userId);
+  return { ...keywordResult, language: userPreferredLanguage || 'en' };
 }
