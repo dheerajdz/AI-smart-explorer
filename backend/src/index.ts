@@ -15,6 +15,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { env } from './config/env';
 import { logger } from './utils/logger';
 import { setBotInstance } from './services/notification/telegramNotify';
+import { handleWebhook } from './services/webhook/webhookService';
 
 function verifySlackSignature(rawBody: Buffer, req: Request): boolean {
   if (!env.SLACK_SIGNING_SECRET) {
@@ -95,6 +96,9 @@ async function main(): Promise<void> {
 
   // X webhook router
   app.use(getXWebhookRouter());
+
+  // External webhook endpoint for real-time alerts
+  app.post('/webhook/alerts', handleWebhook);
 
   app.use(routes);
   app.use(errorHandler);
