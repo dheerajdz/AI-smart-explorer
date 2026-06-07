@@ -56,7 +56,39 @@ export async function dispatch(
     return response;
   }
 
-  // ─── 3. Keyword routing (before address detection) ──────────
+  // ─── 3. AI / Natural language routing (primary) ─────────────
+  try {
+    const { parseQuery, executeQuery } = await import('../../services/ai');
+    const { detectNetwork } = await import('../../utils/network');
+
+    const addressMatch = trimmed.match(/\b(xdc[0-9a-fA-F]{40}|txdc[0-9a-fA-F]{40}|0x[0-9a-fA-F]{40})\b/);
+    const detectedNetwork = addressMatch ? detectNetwork(addressMatch[0]) : 'mainnet';
+
+    const parsed = await parseQuery(trimmed);
+
+    if (parsed.action !== 'unknown') {
+      parsed.network = parsed.network || detectedNetwork;
+      parsed.userId = userId;
+      parsed.platform = platform as any;
+
+      const result = await executeQuery(parsed);
+      logger.info('[dispatch] AI routing success', { action: parsed.action });
+      await ActivityLogModel.create({
+        userId,
+        platform,
+        action: 'ai_query',
+        input: trimmed,
+        output: result.text.substring(0, 200),
+      });
+      return { text: result.text, parseMode: 'markdown' };
+    }
+
+    logger.info('[dispatch] AI parsed as unknown, falling back to keyword router');
+  } catch (err) {
+    logger.warn('[dispatch] AI routing failed, falling back to keyword router', { error: err });
+  }
+
+  // ─── 4. Keyword routing (fallback) ──────────────────────────
   const keywordResult = await keywordRouter(trimmed, userId, platform);
   if (keywordResult) {
     logger.info('[dispatch] Keyword match');
@@ -69,45 +101,6 @@ export async function dispatch(
     });
     return keywordResult;
   }
-
-  // ─── 4. Address-only message ────────────────────────────────
-  const addrMatch = trimmed.match(/\b(0x[0-9a-fA-F]{40}|xdc[0-9a-fA-F]{40}|txdc[0-9a-fA-F]{40})\b/);
-  if (addrMatch && trimmed.replace(addrMatch[0], '').trim().length === 0) {
-    const address = addrMatch[1];
-    logger.info('[dispatch] Address-only message', { address });
-    if (isValidXdcAddress(address)) {
-      const response = await handleAddressOnly(platform, userId, address);
-      await ActivityLogModel.create({
-        userId,
-        platform,
-        action: 'connect_wallet',
-        input: trimmed,
-        output: response.text.substring(0, 200),
-        metadata: { address },
-      });
-      return response;
-    }
-    await ActivityLogModel.create({
-      userId,
-      platform,
-      action: 'invalid_address',
-      input: trimmed,
-      output: 'Invalid address',
-    });
-    return { text: '❌ Invalid XDC address. Please check and try again.' };
-  }
-
-  // ─── 5. AI / Natural language fallback ──────────────────────
-  logger.info('[dispatch] Falling back to AI routing');
-  const aiResult = await messageRouter(trimmed, userId, platform);
-  await ActivityLogModel.create({
-    userId,
-    platform,
-    action: 'ai_query',
-    input: trimmed,
-    output: aiResult.text.substring(0, 200),
-  });
-  return { text: aiResult.text, parseMode: 'markdown' };
 }
 
 export async function logWalletConnect(
