@@ -57,6 +57,18 @@ export class ConnectedWalletModel {
     return result.modifiedCount > 0 || result.upsertedCount > 0;
   }
 
+  static async findOneAndUpdate(
+    filter: Partial<IConnectedWallet>,
+    update: Partial<IConnectedWallet>
+  ): Promise<IConnectedWallet | null> {
+    const result = await this.getCollection().findOneAndUpdate(
+      filter as any,
+      { $set: { ...update, updatedAt: new Date() } },
+      { returnDocument: 'after', upsert: false }
+    );
+    return result;
+  }
+
   static async createIndexes(): Promise<void> {
     const collection = this.getCollection();
     await collection.createIndex({ userId: 1, platform: 1 }, { unique: true });

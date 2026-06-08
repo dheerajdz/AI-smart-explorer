@@ -54,9 +54,10 @@ export async function disconnectWallet(
   platform: 'telegram' | 'whatsapp' | 'slack' | 'x'
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const result = await ConnectedWalletModel.updateOne(
+    // Use findOneAndUpdate to actually update the document
+    const result = await ConnectedWalletModel.findOneAndUpdate(
       { userId, platform },
-      { isConnected: false }
+      { isConnected: false, updatedAt: new Date() }
     );
 
     if (!result) {
