@@ -223,6 +223,123 @@ export async function handleWhatsAppMessage(fromNumber: string, text: string): P
       
       return message;
     }
+
+    // Price command
+    if (lowerInput === 'price' || lowerInput === '/price') {
+      const { cmdPrice } = await import('../../services/blockchainCommands');
+      const result = cmdPrice();
+      return result.text;
+    }
+
+    // List command
+    if (lowerInput === 'list' || lowerInput === '/list') {
+      const { cmdList } = await import('../../services/blockchainCommands');
+      const result = cmdList(userId);
+      return result.text;
+    }
+
+    // Untrack command
+    if (lowerInput.startsWith('untrack') || lowerInput.startsWith('/untrack')) {
+      const parts = input.split(/\s+/);
+      const address = parts[1] || '';
+      
+      if (!address) {
+        return 'Usage: `untrack <address>`';
+      }
+      
+      const { cmdUntrack } = await import('../../services/blockchainCommands');
+      const result = cmdUntrack(address, userId);
+      return result.text;
+    }
+
+    // Block command
+    if (lowerInput.startsWith('block') || lowerInput.startsWith('/block')) {
+      const parts = input.split(/\s+/);
+      const blockNumber = parts[1] || '';
+      
+      if (!blockNumber) {
+        return 'Usage: `block <number>`';
+      }
+      
+      const { cmdBlockInfo } = await import('../../services/blockchainCommands');
+      const result = await cmdBlockInfo(blockNumber);
+      return result.text;
+    }
+
+    // Failed transactions command
+    if (lowerInput.startsWith('failed') || lowerInput.startsWith('/failed')) {
+      const parts = input.split(/\s+/);
+      let address = parts[1] || '';
+      
+      if (!address) {
+        address = wallet.address;
+      }
+      
+      if (!address) {
+        return 'Usage: `failed <address>`\n\nOr connect a wallet first.';
+      }
+      
+      const { cmdFailedTransactions } = await import('../../services/blockchainCommands');
+      const result = await cmdFailedTransactions(address, 5);
+      return result.text;
+    }
+
+    // Large transfers command
+    if (lowerInput.startsWith('large') || lowerInput.startsWith('/large')) {
+      const parts = input.split(/\s+/);
+      let address = parts[1] || '';
+      
+      if (!address) {
+        address = wallet.address;
+      }
+      
+      if (!address) {
+        return 'Usage: `large <address>`\n\nOr connect a wallet first.';
+      }
+      
+      const { cmdLargeTransfers } = await import('../../services/blockchainCommands');
+      const result = await cmdLargeTransfers(address, 1000);
+      return result.text;
+    }
+
+    // Alerts command
+    if (lowerInput === 'alerts' || lowerInput === '/alerts') {
+      const { cmdListAlerts } = await import('../../services/blockchainCommands');
+      const result = await cmdListAlerts(userId);
+      return result.text;
+    }
+
+    // Premium command
+    if (lowerInput === 'premium' || lowerInput === '/premium') {
+      const { cmdPremium } = await import('../../services/blockchainCommands');
+      const result = await cmdPremium(userId);
+      return result.text;
+    }
+
+    // Language command
+    if (lowerInput.startsWith('language') || lowerInput.startsWith('/language')) {
+      const parts = input.split(/\s+/);
+      const lang = parts[1]?.toLowerCase() || '';
+      const validLangs = ['en', 'hi', 'mr'];
+      
+      if (!lang || !validLangs.includes(lang)) {
+        return `🌐 *Select Language*\n\n` +
+          `Choose:\n` +
+          `• \`language en\` — English 🇬🇧\n` +
+          `• \`language hi\` — हिन्दी 🇮🇳\n` +
+          `• \`language mr\` — मराठी 🇮🇳`;
+      }
+      
+      const success = await setUserLanguage(userId, 'whatsapp', lang);
+      
+      const messages: Record<string, string> = {
+        en: '✅ Language set to English 🇬🇧',
+        hi: '✅ भाषा हिंदी में सेट की गई 🇮🇳',
+        mr: '✅ भाषा मराठीत सेट केली 🇮🇳',
+      };
+      
+      return messages[lang] || messages['en'];
+    }
   }
 
   // Handle gas command (without wallet)
@@ -245,21 +362,31 @@ export async function handleWhatsAppMessage(fromNumber: string, text: string): P
       `*Wallet Commands:*\n` +
       `• balance - Check your connected wallet balance\n` +
       `• tx - View your transactions\n` +
+      `• activity - Wallet activity summary\n` +
       `• track <address> - Track a wallet\n` +
       `• untrack <address> - Stop tracking\n` +
       `• list - Show tracked wallets\n\n` +
       `*Network Commands:*\n` +
       `• gas - Current gas prices\n` +
       `• status - Network status\n` +
+      `• price - XDC price\n` +
       `• block <number> - Block info\n\n` +
+      `*Analysis:*\n` +
+      `• failed <address> - Failed transactions\n` +
+      `• large <address> - Large transfers\n\n` +
       `*Portfolio & Reputation:*\n` +
       `• portfolio - View your portfolio\n` +
       `• reputation <address> - Check wallet reputation\n` +
       `• leaderboard - Top wallets by reputation\n\n` +
+      `*Alerts:*\n` +
+      `• alerts - Show your alerts\n\n` +
+      `*Settings:*\n` +
+      `• language <en/hi/mr> - Change language\n` +
+      `• premium - Premium info\n` +
+      `• disconnect - Disconnect wallet\n\n` +
       `*Other:*\n` +
       `• /subscription - Your subscription\n` +
-      `• /upgrade - Upgrade plan\n` +
-      `• disconnect - Disconnect wallet`;
+      `• /upgrade - Upgrade plan`;
   }
 
   // Route through unified dispatcher for everything else
