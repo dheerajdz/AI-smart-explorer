@@ -11,6 +11,14 @@ import {
   handleCancel,
   logoutCommand,
   handleLogoutAction,
+  trackCommand,
+  untrackCommand,
+  listCommand,
+  balanceCommand,
+  txCommand,
+  priceCommand,
+  statusCommand,
+  helpCommand,
 } from './commands';
 import {
   showMainMenu,
@@ -37,6 +45,7 @@ import {
   handleBillingPortal,
 } from './billingCommands';
 import { portfolioCommand } from './commands/portfolioCommand';
+import { reputationCommand, leaderboardCommand } from './commands/reputationCommand';
 import { handleTelegramMessage } from './adapter';
 
 export function createBot(): Telegraf {
@@ -48,6 +57,17 @@ export function createBot(): Telegraf {
   bot.command('logout', logoutCommand);
   bot.command('subscription', subscriptionCommand);
   bot.command('portfolio', portfolioCommand);
+  bot.command('reputation', reputationCommand);
+  bot.command('leaderboard', leaderboardCommand);
+  bot.command('upgrade', upgradeCommand);
+  bot.command('track', trackCommand);
+  bot.command('untrack', untrackCommand);
+  bot.command('list', listCommand);
+  bot.command('balance', balanceCommand);
+  bot.command('tx', txCommand);
+  bot.command('price', priceCommand);
+  bot.command('status', statusCommand);
+  bot.command('help', helpCommand);
 
   /* -------------------- Billing Callbacks -------------------- */
   bot.action('billing_upgrade', upgradeCommand);
