@@ -69,17 +69,7 @@ export async function startCommand(ctx: Context): Promise<void> {
   // Clear any stale conversation state
   await ConversationStateService.clearState(telegramId);
 
-  // Check if user already exists in auth system
-  const existingUser = await AuthService.findByTelegramId(telegramId);
-
-  if (existingUser) {
-    // User has auth account — show personalized welcome back
-    const { showWelcomeBack } = await import('./walletConnect');
-    await showWelcomeBack(ctx);
-    return;
-  }
-
-  // Check if user has connected wallet (new flow)
+  // Check if user has connected wallet (new flow) - THIS FIRST
   const { startWalletFlow } = await import('./walletConnect');
   await startWalletFlow(ctx);
 }
