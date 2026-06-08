@@ -55,10 +55,12 @@ export async function handleWhatsAppMessage(fromNumber: string, text: string): P
     return welcome.text;
   }
 
-  // Handle balance command with connected wallet
-  if (lowerInput === 'balance' || lowerInput === '/balance') {
-    const wallet = await getConnectedWallet(userId, 'whatsapp');
-    if (wallet) {
+  // Handle menu numbers (1-6) for connected wallets
+  const wallet = await getConnectedWallet(userId, 'whatsapp');
+  
+  if (wallet) {
+    // Menu option 1: View Balance
+    if (lowerInput === '1' || lowerInput === 'balance' || lowerInput.includes('balance')) {
       const { cmdBalance } = await import('../../services/blockchainCommands');
       const prefix = wallet.network === 'testnet' ? 'txdc' : 'xdc';
       const address = wallet.address.startsWith('0x')
@@ -67,12 +69,9 @@ export async function handleWhatsAppMessage(fromNumber: string, text: string): P
       const result = await cmdBalance(address);
       return result.text;
     }
-  }
 
-  // Handle transactions command with connected wallet
-  if (lowerInput === 'transactions' || lowerInput === 'tx' || lowerInput === '/tx') {
-    const wallet = await getConnectedWallet(userId, 'whatsapp');
-    if (wallet) {
+    // Menu option 2: Transactions
+    if (lowerInput === '2' || lowerInput === 'tx' || lowerInput === 'transactions' || lowerInput.includes('transaction')) {
       const { cmdTransactions } = await import('../../services/blockchainCommands');
       const prefix = wallet.network === 'testnet' ? 'txdc' : 'xdc';
       const address = wallet.address.startsWith('0x')
@@ -81,22 +80,40 @@ export async function handleWhatsAppMessage(fromNumber: string, text: string): P
       const result = await cmdTransactions(address, 5);
       return result.text;
     }
-  }
 
-  // Handle track command with connected wallet
-  if (lowerInput === 'track' || lowerInput === '/track') {
-    const wallet = await getConnectedWallet(userId, 'whatsapp');
-    if (wallet) {
+    // Menu option 3: Activity
+    if (lowerInput === '3' || lowerInput === 'activity' || lowerInput.includes('activity')) {
+      const { cmdWalletActivity } = await import('../../services/blockchainCommands');
+      const prefix = wallet.network === 'testnet' ? 'txdc' : 'xdc';
+      const address = wallet.address.startsWith('0x')
+        ? `${prefix}${wallet.address.slice(2)}`
+        : wallet.address;
+      const result = await cmdWalletActivity(address);
+      return result.text;
+    }
+
+    // Menu option 4: Gas Price
+    if (lowerInput === '4' || lowerInput === 'gas' || lowerInput.includes('gas')) {
+      const { cmdGasPrice } = await import('../../services/blockchainCommands');
+      const result = await cmdGasPrice();
+      return result.text;
+    }
+
+    // Menu option 5: Track
+    if (lowerInput === '5' || lowerInput === 'track' || lowerInput.includes('track')) {
       const { cmdTrack } = await import('../../services/blockchainCommands');
       const result = await cmdTrack(wallet.address, userId);
       return result.text;
     }
-  }
 
-  // Handle portfolio command with connected wallet
-  if (lowerInput === 'portfolio' || lowerInput === '/portfolio') {
-    const wallet = await getConnectedWallet(userId, 'whatsapp');
-    if (wallet) {
+    // Menu option 6: Disconnect
+    if (lowerInput === '6' || lowerInput === 'disconnect' || lowerInput.includes('disconnect')) {
+      const result = await disconnectWallet(userId, 'whatsapp');
+      return result.message;
+    }
+
+    // Portfolio command
+    if (lowerInput === 'portfolio' || lowerInput === '/portfolio' || lowerInput.includes('portfolio')) {
       const { getPortfolioSummary } = await import('../../services/portfolioService');
       const portfolio = await getPortfolioSummary(userId, 'whatsapp');
       
@@ -121,7 +138,7 @@ export async function handleWhatsAppMessage(fromNumber: string, text: string): P
     }
   }
 
-  // Handle gas command
+  // Handle gas command (without wallet)
   if (lowerInput === 'gas' || lowerInput === '/gas') {
     const { cmdGasPrice } = await import('../../services/blockchainCommands');
     const result = await cmdGasPrice();
@@ -154,13 +171,6 @@ export async function handleWhatsAppMessage(fromNumber: string, text: string): P
       `• /subscription - Your subscription\n` +
       `• /upgrade - Upgrade plan\n` +
       `• disconnect - Disconnect wallet`;
-  }
-
-  // Handle disconnect command
-  if (lowerInput === 'disconnect' || lowerInput === '/disconnect') {
-    const { disconnectWallet } = await import('../../services/connectedWalletService');
-    const result = await disconnectWallet(userId, 'whatsapp');
-    return result.message;
   }
 
   // Route through unified dispatcher for everything else
