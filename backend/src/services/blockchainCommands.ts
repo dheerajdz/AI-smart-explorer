@@ -19,7 +19,7 @@ import {
 } from './blockchain';
 import * as walletService from './walletService';
 import { getReputation, getLeaderboard, getTier, getTierEmoji } from './reputation/reputationService';
-import { getTranslationByLang, TranslationKeys } from '../i18n';
+import { getTranslationByLang, TranslationKeys } from '../services/i18nService';
 
 // ─── Types ──────────────────────────────────────────────────
 
