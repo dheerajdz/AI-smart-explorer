@@ -1,4 +1,12 @@
 {
+  "private": true,
+  "name": "AI-smart-explorer",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix frontend run start"
+  },
+  "postinstall": "npm --prefix frontend install",
   "dependencies": {
     "next": "^16.2.7"
   }
