@@ -22,6 +22,8 @@ Rules:
 
 Supported actions:
 - balance              → Get XDC balance of an address
+- wallet_status        → Check if user has a connected wallet
+- set_language         → Change bot language (en/hi/mr)
 - transactions         → Get transactions for an address
 - transaction_detail   → Get details of a specific tx hash
 - wallet_activity      → Get activity stats for an address
@@ -37,8 +39,25 @@ Supported actions:
 - create_alert         → Create a price/activity alert
 - list_alerts          → List active alerts
 - delete_alert         → Delete an alert
+- help                 → Show menu/help (use for "main menu", "help", "what can you do", "start")
 
 Examples:
+
+Input: "main menu"
+Output:
+{"action":"help"}
+
+Input: "what can you do"
+Output:
+{"action":"help"}
+
+Input: "Is my wallet connected?"
+Output:
+{"action":"wallet_status"}
+
+Input: "Show my connected wallet"
+Output:
+{"action":"wallet_status"}
 
 Input: "Show failed contract deploys last week"
 Output:
@@ -69,6 +88,43 @@ Output:
 {"action":"balance","address":"0x1111..."}
 
 Return ONLY JSON for this input:
+`;
+
+/**
+ * LANGUAGE_DETECTION_PROMPT
+ * Detects language from user input for i18n routing.
+ */
+export const LANGUAGE_DETECTION_PROMPT = `
+You are a language detector for an Indian blockchain bot.
+
+Detect the language of the user's message. Return ONLY a JSON object.
+
+Supported languages:
+- en: English
+- hi: Hindi (Devanagari or Hinglish)
+- mr: Marathi (Devanagari or Roman)
+
+Rules:
+1. Return ONLY valid JSON: {"language":"hi","confidence":0.9}
+2. Confidence is 0.0 to 1.0
+3. Hinglish (Roman Hindi like "batao", "kitna") = "hi"
+4. Devanagari script = "hi" or "mr" (use context clues)
+
+Examples:
+
+Input: "balance batao"
+Output: {"language":"hi","confidence":0.9}
+
+Input: "माझं wallet दाखवा"
+Output: {"language":"mr","confidence":0.95}
+
+Input: "Show my balance"
+Output: {"language":"en","confidence":1.0}
+
+Input: "Hindi mein baat karo"
+Output: {"language":"hi","confidence":0.85}
+
+Detect language for this input:
 `;
 
 /**

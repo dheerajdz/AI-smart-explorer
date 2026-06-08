@@ -2,11 +2,8 @@ import { logger } from '../../utils/logger';
 import { Platform, BotResponse } from './types';
 import { isGreeting, generateWelcome } from './welcome';
 import { commandRouter, handleAddressOnly } from './commandRouter';
-import { keywordRouter } from './keywordRouter';
-import { messageRouter } from '../../services/messageRouter';
-import { isValidXdcAddress } from '../../utils/network';
+import { keywordRouter } from '../../services/keywordRouter';
 import { ActivityLogModel } from '../../models/ActivityLog';
-import { connectWallet, disconnectWallet } from '../../services/connectedWalletService';
 
 /**
  * Unified bot dispatcher.
@@ -56,35 +53,12 @@ export async function dispatch(
     return response;
   }
 
-  // ─── 3. Address-only message ────────────────────────────────
-  const addrMatch = trimmed.match(/\b(0x[0-9a-fA-F]{40}|xdc[0-9a-fA-F]{40}|txdc[0-9a-fA-F]{40})\b/);
-  if (addrMatch && trimmed.replace(addrMatch[0], '').trim().length === 0) {
-    const address = addrMatch[1];
-    logger.info('[dispatch] Address-only message', { address });
-    if (isValidXdcAddress(address)) {
-      const response = await handleAddressOnly(platform, userId, address);
-      await ActivityLogModel.create({
-        userId,
-        platform,
-        action: 'connect_wallet',
-        input: trimmed,
-        output: response.text.substring(0, 200),
-        metadata: { address },
-      });
-      return response;
-    }
-    await ActivityLogModel.create({
-      userId,
-      platform,
-      action: 'invalid_address',
-      input: trimmed,
-      output: 'Invalid address',
-    });
-    return { text: '❌ Invalid XDC address. Please check and try again.' };
-  }
+  // ─── 3. AI / Natural language routing (DISABLED for now) ────
+  // TODO: Re-enable when Groq NLU pipeline is fully tested
+  logger.info('[dispatch] AI routing disabled, using keyword fallback');
 
-  // ─── 4. Keyword routing ─────────────────────────────────────
-  const keywordResult = await keywordRouter(platform, userId, trimmed);
+  // ─── 4. Keyword routing (fallback) ──────────────────────────
+  const keywordResult = await keywordRouter(trimmed, userId, platform);
   if (keywordResult) {
     logger.info('[dispatch] Keyword match');
     await ActivityLogModel.create({
@@ -97,17 +71,10 @@ export async function dispatch(
     return keywordResult;
   }
 
-  // ─── 5. AI / Natural language fallback ──────────────────────
-  logger.info('[dispatch] Falling back to AI routing');
-  const aiResult = await messageRouter(trimmed, userId);
-  await ActivityLogModel.create({
-    userId,
-    platform,
-    action: 'ai_query',
-    input: trimmed,
-    output: aiResult.text.substring(0, 200),
-  });
-  return { text: aiResult.text, parseMode: 'markdown' };
+  // ─── 5. Final fallback ──────────────────────────────────────
+  return {
+    text: "🤖 I didn't understand that. Type /help to see what I can do.",
+  };
 }
 
 export async function logWalletConnect(

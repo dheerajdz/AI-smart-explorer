@@ -12,14 +12,16 @@
 import axios, { AxiosError } from 'axios';
 import { logger } from '../../utils/logger';
 import { env } from '../../config/env';
-import { Network, getExplorerBaseUrl } from '../../utils/network';
+import { Network, getExplorerBaseUrl, getAddressExplorerUrl } from '../../utils/network';
 
 // ─── Config ─────────────────────────────────────────────────
 
 function getXdcscanBaseUrl(network: Network = 'mainnet'): string {
-  return network === 'testnet'
-    ? env.XDCSCAN_TESTNET_API
-    : env.XDCSCAN_API;
+  if (network === 'testnet') {
+    // Testnet: RPC endpoint for balance/transactions (XDCScan testnet API is dead)
+    return 'https://rpc.apothem.network';
+  }
+  return env.XDCSCAN_API;
 }
 
 function createXdcscanClient(network: Network = 'mainnet') {
@@ -30,6 +32,33 @@ function createXdcscanClient(network: Network = 'mainnet') {
       'Content-Type': 'application/json',
     },
   });
+}
+
+/**
+ * JSON-RPC call for testnet balance
+ */
+async function getTestnetBalance(address: string): Promise<string> {
+  // Ensure address is in 0x format for RPC call
+  const rpcAddress = address.startsWith('txdc') 
+    ? '0x' + address.slice(4) 
+    : address;
+    
+  const response = await axios.post('https://rpc.apothem.network', {
+    jsonrpc: '2.0',
+    method: 'eth_getBalance',
+    params: [rpcAddress, 'latest'],
+    id: 1,
+  }, {
+    headers: { 'Content-Type': 'application/json' },
+    timeout: 15000,
+  });
+
+  const result = response.data?.result;
+  if (result) {
+    // Convert hex wei to decimal string
+    return BigInt(result).toString();
+  }
+  return '0';
 }
 
 // ─── Types ──────────────────────────────────────────────────
@@ -181,44 +210,40 @@ export async function getWalletBalance(
 ): Promise<WalletBalanceResponse> {
   logger.info('[XDCScan] getWalletBalance', { address, network });
 
-  const xdcscanClient = createXdcscanClient(network);
-
   try {
-    const response = await xdcscanClient.get('', {
-      params: {
-        module: 'account',
-        action: 'balance',
-        address,
-        tag: 'latest',
-      },
-    });
-
-    const result = response.data?.result;
-
-    if (result === undefined || result === null) {
-      logger.warn('[XDCScan] Empty balance response', { address, data: response.data });
-      return {
-        address,
-        balance: '0',
-        balanceXDC: '0',
-        network,
-        source: 'xdcscan',
-        explorerUrl: `${getExplorerBaseUrl(network)}/address/${address}`,
-      };
+    let balance: string;
+    
+    if (network === 'testnet') {
+      balance = await getTestnetBalance(address);
+    } else {
+      const xdcscanClient = createXdcscanClient(network);
+      const response = await xdcscanClient.get('', {
+        params: {
+          module: 'account',
+          action: 'balance',
+          address,
+          tag: 'latest',
+        },
+      });
+      balance = String(response.data?.result || '0');
     }
 
-    const balance = String(result);
     const balanceXDC = weiToXDC(balance);
+    
+    // Display address in 0x format for testnet
+    const displayAddress = network === 'testnet' && address.startsWith('txdc')
+      ? '0x' + address.slice(4)
+      : address;
 
     logger.info('[XDCScan] Balance retrieved', { address, balanceXDC, network });
 
     return {
-      address,
+      address: displayAddress,
       balance,
       balanceXDC,
       network,
       source: 'xdcscan',
-      explorerUrl: `${getExplorerBaseUrl(network)}/address/${address}`,
+      explorerUrl: getAddressExplorerUrl(network, address),
     };
 
   } catch (error) {
@@ -260,7 +285,7 @@ export async function getTransactions(
         totalCount: 0,
         network,
         source: 'xdcscan',
-        explorerUrl: `${getExplorerBaseUrl(network)}/address/${address}`,
+        explorerUrl: getAddressExplorerUrl(network, address),
       };
     }
 
@@ -290,7 +315,7 @@ export async function getTransactions(
       totalCount: transactions.length,
       network,
       source: 'xdcscan',
-      explorerUrl: `${getExplorerBaseUrl(network)}/address/${address}`,
+      explorerUrl: getAddressExplorerUrl(network, address),
     };
 
   } catch (error) {
@@ -481,6 +506,39 @@ export async function getTokenBalance(
 export async function getGasPrice(network: Network = 'mainnet'): Promise<GasPriceResponse> {
   logger.info('[XDCScan] getGasPrice', { network });
 
+  // Testnet: Use RPC directly (XDCScan testnet API is dead)
+  if (network === 'testnet') {
+    try {
+      const response = await axios.post(
+        'https://rpc.apothem.network',
+        {
+          jsonrpc: '2.0',
+          method: 'eth_gasPrice',
+          params: [],
+          id: 1,
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 15000,
+        }
+      );
+
+      const gasPriceHex = response.data?.result;
+      const gasPriceGwei = gasPriceHex ? weiToGwei(String(parseInt(gasPriceHex, 16))) : '0';
+
+      return {
+        safeGasPrice: gasPriceGwei,
+        proposeGasPrice: gasPriceGwei,
+        fastGasPrice: gasPriceGwei,
+        network,
+        source: 'xdcscan',
+      };
+    } catch (error) {
+      return handleApiError(error, 'getGasPrice');
+    }
+  }
+
+  // Mainnet: Use XDCScan API
   const xdcscanClient = createXdcscanClient(network);
 
   try {
@@ -534,43 +592,42 @@ export async function getBlockByNumber(
 ): Promise<BlockInfoResponse> {
   logger.info('[XDCScan] getBlockByNumber', { blockNumber, network });
 
-  const xdcscanClient = createXdcscanClient(network);
+  const baseUrl = network === 'testnet' 
+    ? 'https://api-testnet.xdcscan.io'
+    : 'https://api.xdcscan.io';
 
   try {
-    const blockHex = typeof blockNumber === 'number'
-      ? `0x${blockNumber.toString(16)}`
-      : blockNumber === 'latest'
-        ? 'latest'
-        : blockNumber;
-
-    const response = await xdcscanClient.get('', {
-      params: {
-        module: 'proxy',
-        action: 'eth_getBlockByNumber',
-        tag: blockHex,
-        boolean: 'true',
-      },
-    });
-
-    const block = response.data?.result;
+    let block;
+    
+    if (blockNumber === 'latest') {
+      // Get latest block from /blocks
+      const response = await axios.get(`${baseUrl}/blocks`, { 
+        timeout: 15000,
+        params: { limit: 1 }
+      });
+      block = response.data?.items?.[0];
+    } else {
+      // Get specific block
+      const num = typeof blockNumber === 'number' ? blockNumber : parseInt(blockNumber);
+      const response = await axios.get(`${baseUrl}/blocks/${num}`, { timeout: 15000 });
+      block = response.data;
+    }
 
     if (!block || typeof block !== 'object') {
       throw new Error('Block not found');
     }
 
-    const blockNum = block.number ? parseInt(block.number, 16).toString() : String(blockNumber);
-    const timestamp = block.timestamp
-      ? new Date(parseInt(block.timestamp, 16) * 1000).toISOString()
-      : '';
+    const blockNum = String(block.number || block.height || blockNumber);
+    const timestamp = block.timestamp || '';
 
     return {
       blockNumber: blockNum,
       timestamp,
       hash: block.hash || '',
-      miner: block.miner || block.author || '',
-      gasUsed: block.gasUsed ? String(parseInt(block.gasUsed, 16)) : '0',
-      gasLimit: block.gasLimit ? String(parseInt(block.gasLimit, 16)) : '0',
-      transactions: Array.isArray(block.transactions) ? block.transactions.length : 0,
+      miner: block.miner_hash || block.miner?.hash || '',
+      gasUsed: String(block.gas_used || '0'),
+      gasLimit: String(block.gas_limit || '0'),
+      transactions: block.tx_count || 0,
       network,
       source: 'xdcscan',
       explorerUrl: `${getExplorerBaseUrl(network)}/block/${blockNum}`,
@@ -599,14 +656,97 @@ export async function getFailedTransactions(
       totalCount: failed.length,
       network,
       source: 'xdcscan',
-      explorerUrl: `${getExplorerBaseUrl(network)}/address/${address}`,
+      explorerUrl: getAddressExplorerUrl(network, address),
     };
   } catch (error) {
     return handleApiError(error, 'getFailedTransactions');
   }
 }
 
-// ─── 10. getFailedContractDeployments ───────────────────────
+// ─── 10. getNetworkStats ────────────────────────────────────
+
+export interface NetworkStatsResponse {
+  latestBlock: string;
+  totalTransactions: string;
+  totalBlocks: string;
+  xdcPrice: string;
+  marketCap: string;
+  latestTransactions: Array<{
+    hash: string;
+    from: string;
+    to: string;
+    value: string;
+    timestamp: string;
+  }>;
+  network: Network;
+  source: 'xdcscan';
+}
+
+export async function getNetworkStats(network: Network = 'mainnet'): Promise<NetworkStatsResponse> {
+  logger.info('[XDCScan] getNetworkStats', { network });
+
+  const baseUrl = network === 'testnet' 
+    ? 'https://api-testnet.xdcscan.io'
+    : 'https://api.xdcscan.io';
+
+  try {
+    // Get stats from /stats endpoint
+    const statsResponse = await axios.get(`${baseUrl}/stats`, { timeout: 15000 });
+    const stats = statsResponse.data;
+
+    // Get latest blocks
+    const blocksResponse = await axios.get(`${baseUrl}/blocks`, { 
+      timeout: 15000,
+      params: { limit: 1 }
+    });
+    const latestBlock = blocksResponse.data?.items?.[0];
+
+    // Get latest transactions
+    const txResponse = await axios.get(`${baseUrl}/transactions`, { 
+      timeout: 15000,
+      params: { limit: 5 }
+    });
+    const transactions = txResponse.data?.items || [];
+
+    const latestTransactions = transactions.map((tx: any) => ({
+      hash: tx.hash || '',
+      from: tx.from_address_hash || '',
+      to: tx.to_address_hash || '',
+      value: tx.value ? weiToXDC(tx.value) : '0',
+      timestamp: tx.timestamp || '',
+    }));
+
+    const xdcPrice = stats.coin_price ? String(stats.coin_price) : '0.03';
+    const marketCap = stats.market_cap ? String(stats.market_cap) : '0';
+
+    return {
+      latestBlock: latestBlock?.number ? String(latestBlock.number) : '0',
+      totalTransactions: latestBlock?.tx_count ? String(latestBlock.tx_count) : '0',
+      totalBlocks: latestBlock?.number ? String(latestBlock.number) : '0',
+      xdcPrice,
+      marketCap,
+      latestTransactions,
+      network,
+      source: 'xdcscan',
+    };
+
+  } catch (error) {
+    logger.error('[XDCScan] getNetworkStats failed', { error });
+    // Return fallback data
+    return {
+      latestBlock: '0',
+      totalTransactions: '0',
+      totalBlocks: '0',
+      xdcPrice: '0.03',
+      marketCap: '0',
+      latestTransactions: [],
+      network,
+      source: 'xdcscan',
+    };
+  }
+}
+
+// ─── 11. getFailedContractDeployments ───────────────────────
 
 export async function getFailedContractDeployments(
   network: Network = 'mainnet',

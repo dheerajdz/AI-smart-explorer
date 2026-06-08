@@ -15,6 +15,7 @@ export enum QueryAction {
   // ── Wallet & Balance ─────────────────────────────────────
   WALLET_BALANCE = 'wallet_balance',
   WALLET_ACTIVITY = 'wallet_activity',
+  WALLET_STATUS = 'wallet_status',
   TOKEN_BALANCE = 'token_balance',
   NFT_BALANCE = 'nft_balance',
 
@@ -39,6 +40,14 @@ export enum QueryAction {
   LIST_ALERTS = 'list_alerts',
   DELETE_ALERT = 'delete_alert',
 
+  // ── Portfolio ──────────────────────────────────────────────
+  PORTFOLIO_SUMMARY = 'portfolio_summary',
+  ADD_PORTFOLIO_WALLET = 'add_portfolio_wallet',
+  REMOVE_PORTFOLIO_WALLET = 'remove_portfolio_wallet',
+
+  // ── Language & Localization ──────────────────────────────
+  SET_LANGUAGE = 'set_language',
+
   // ── Utility ──────────────────────────────────────────────
   HELP = 'help',
   UNKNOWN = 'unknown',
@@ -61,6 +70,26 @@ export interface ParsedQuery {
   /** Network context extracted from address (mainnet | testnet). */
   network?: 'mainnet' | 'testnet';
 
+  /** User ID for alert operations. */
+  userId?: string;
+
+  /** Platform for alert operations. */
+  platform?: 'telegram' | 'whatsapp' | 'slack' | 'x';
+
+  /** Chat ID for alert notifications. */
+  chatId?: string;
+
+  /** Alert-specific fields. */
+  alertType?: string;
+  alertName?: string;
+  threshold?: number;
+  operator?: string;
+  currency?: string;
+  unit?: string;
+  maxTriggers?: number;
+  cooldownMinutes?: number;
+  alertId?: string;
+
   /** Any extra parameters extracted from the user message. */
   [key: string]: any;
 }
@@ -72,6 +101,7 @@ export interface ParsedQuery {
 export const QUERY_ACTION_DESCRIPTIONS: Record<QueryAction, string> = {
   [QueryAction.WALLET_BALANCE]: 'Check XDC balance of a wallet address',
   [QueryAction.WALLET_ACTIVITY]: 'Show recent activity for a wallet',
+  [QueryAction.WALLET_STATUS]: 'Check connected wallet status',
   [QueryAction.TOKEN_BALANCE]: 'Check ERC-20 token balance',
   [QueryAction.NFT_BALANCE]: 'List NFT holdings for a wallet',
 
@@ -92,6 +122,12 @@ export const QUERY_ACTION_DESCRIPTIONS: Record<QueryAction, string> = {
   [QueryAction.LIST_ALERTS]: 'Show your active alerts',
   [QueryAction.DELETE_ALERT]: 'Remove an existing alert',
 
+  [QueryAction.PORTFOLIO_SUMMARY]: 'Show portfolio overview with all wallets',
+  [QueryAction.ADD_PORTFOLIO_WALLET]: 'Add a wallet to your portfolio',
+  [QueryAction.REMOVE_PORTFOLIO_WALLET]: 'Remove a wallet from your portfolio',
+
+  [QueryAction.SET_LANGUAGE]: 'Set your preferred language (en/hi/mr)',
+
   [QueryAction.HELP]: 'Show available commands and examples',
   [QueryAction.UNKNOWN]: 'Unrecognized query — try rephrasing',
 };
@@ -108,6 +144,10 @@ export const QUERY_ACTION_EXAMPLES: Record<QueryAction, string[]> = {
   [QueryAction.WALLET_ACTIVITY]: [
     'Show activity for xdc123...',
     'What has 0xabc... been doing?',
+  ],
+  [QueryAction.WALLET_STATUS]: [
+    'Is my wallet connected?',
+    'Show my connected wallet',
   ],
   [QueryAction.TOKEN_BALANCE]: [
     'Token balance of xdc123...',
@@ -174,9 +214,31 @@ export const QUERY_ACTION_EXAMPLES: Record<QueryAction, string[]> = {
     'Remove my gas alert',
   ],
 
+  [QueryAction.PORTFOLIO_SUMMARY]: [
+    'Show my portfolio',
+    'Portfolio overview',
+    'My wallets',
+  ],
+  [QueryAction.ADD_PORTFOLIO_WALLET]: [
+    'Add wallet xdc123... to portfolio',
+    'Track wallet 0xabc...',
+  ],
+  [QueryAction.REMOVE_PORTFOLIO_WALLET]: [
+    'Remove wallet xdc123... from portfolio',
+    'Stop tracking wallet 0xabc...',
+  ],
+
+  [QueryAction.SET_LANGUAGE]: [
+    'Set language to Hindi',
+    '/language hi',
+    'मराठीत बोला',
+  ],
+
   [QueryAction.HELP]: [
     'help',
     '?',
+    'menu',
+    'commands',
   ],
   [QueryAction.UNKNOWN]: [
     'Try one of the examples above',

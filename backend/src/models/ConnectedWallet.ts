@@ -8,6 +8,7 @@ export interface IConnectedWallet {
   address: string;
   network: 'mainnet' | 'testnet';
   label?: string;
+  language: 'en' | 'hi' | 'mr';
   isConnected: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -36,6 +37,7 @@ export class ConnectedWalletModel {
     const now = new Date();
     const wallet: IConnectedWallet = {
       ...walletData,
+      language: walletData.language || 'en',
       createdAt: now,
       updatedAt: now,
     };
@@ -53,6 +55,18 @@ export class ConnectedWalletModel {
       $set: { ...update, updatedAt: new Date() },
     }, { upsert: true });
     return result.modifiedCount > 0 || result.upsertedCount > 0;
+  }
+
+  static async findOneAndUpdate(
+    filter: Partial<IConnectedWallet>,
+    update: Partial<IConnectedWallet>
+  ): Promise<IConnectedWallet | null> {
+    const result = await this.getCollection().findOneAndUpdate(
+      filter as any,
+      { $set: { ...update, updatedAt: new Date() } },
+      { returnDocument: 'after', upsert: false }
+    );
+    return result;
   }
 
   static async createIndexes(): Promise<void> {

@@ -28,6 +28,9 @@ import {
   getFailedTransactions,
   getFailedContractDeployments,
 } from '../blockchain';
+import { createAlert, listAlerts, deleteAlert, pauseAlert } from '../alert';
+import { isValidXdcAddress } from '../../utils/network';
+import { translateResponse, SupportedLanguage } from '../i18n';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -42,80 +45,138 @@ export interface QueryResult {
  * Execute a parsed query by routing to the correct blockchain service.
  *
  * @param parsed The structured query from queryParser.ts
+ * @param userLanguage The user's preferred language for response translation
  * @returns Friendly text response for WhatsApp/Telegram
  */
-export async function executeQuery(parsed: ParsedQuery): Promise<QueryResult> {
+export async function executeQuery(
+  parsed: ParsedQuery,
+  userLanguage: SupportedLanguage = 'en'
+): Promise<QueryResult> {
   const { action } = parsed;
   const network: Network = parsed.network || 'mainnet';
 
   logger.info('[queryRouter] Executing action', { action, network, params: Object.keys(parsed) });
 
+  let result: QueryResult;
+
   switch (action) {
     // ── Wallet & Balance ─────────────────────────────────────
     case QueryAction.WALLET_BALANCE:
-      return handleWalletBalance(parsed, network);
+      result = await handleWalletBalance(parsed, network);
+      break;
 
     case QueryAction.WALLET_ACTIVITY:
-      return handleWalletActivity(parsed, network);
+      result = await handleWalletActivity(parsed, network);
+      break;
+
+    case QueryAction.WALLET_STATUS:
+      result = await handleWalletStatus(parsed);
+      break;
 
     case QueryAction.TOKEN_BALANCE:
-      return handleTokenBalance(parsed, network);
+      result = await handleTokenBalance(parsed, network);
+      break;
 
     case QueryAction.NFT_BALANCE:
-      return handleNftBalance(parsed, network);
+      result = await handleNftBalance(parsed, network);
+      break;
 
     // ── Transactions ─────────────────────────────────────────
     case QueryAction.TRANSACTIONS:
-      return handleTransactions(parsed, network);
+      result = await handleTransactions(parsed, network);
+      break;
 
     case QueryAction.TRANSACTION_DETAIL:
-      return handleTransactionDetail(parsed, network);
+      result = await handleTransactionDetail(parsed, network);
+      break;
 
     case QueryAction.FAILED_TRANSACTIONS:
-      return handleFailedTransactions(parsed, network);
+      result = await handleFailedTransactions(parsed, network);
+      break;
 
     case QueryAction.LARGE_TRANSFERS:
-      return handleLargeTransfers(parsed, network);
+      result = await handleLargeTransfers(parsed, network);
+      break;
 
     // ── Contracts ────────────────────────────────────────────
     case QueryAction.CONTRACT_DEPLOYER:
-      return handleContractDeployer(parsed, network);
+      result = await handleContractDeployer(parsed, network);
+      break;
 
     case QueryAction.CONTRACT_VERIFICATION:
-      return handleContractVerification(parsed, network);
+      result = await handleContractVerification(parsed, network);
+      break;
 
     case QueryAction.FAILED_CONTRACT_DEPLOYMENTS:
-      return handleFailedContractDeployments(parsed, network);
+      result = await handleFailedContractDeployments(parsed, network);
+      break;
 
     // ── Network & Gas ────────────────────────────────────────
     case QueryAction.GAS_PRICE:
-      return handleGasPrice(parsed, network);
+      result = await handleGasPrice(parsed, network);
+      break;
 
     case QueryAction.BLOCK_INFO:
-      return handleBlockInfo(parsed, network);
+      result = await handleBlockInfo(parsed, network);
+      break;
 
     case QueryAction.NETWORK_STATS:
-      return handleNetworkStats(parsed, network);
+      result = await handleNetworkStats(parsed, network);
+      break;
 
     // ── Alerts ───────────────────────────────────────────────
     case QueryAction.CREATE_ALERT:
-      return handleCreateAlert(parsed);
+      result = await handleCreateAlert(parsed);
+      break;
 
     case QueryAction.LIST_ALERTS:
-      return handleListAlerts(parsed);
+      result = await handleListAlerts(parsed);
+      break;
 
     case QueryAction.DELETE_ALERT:
-      return handleDeleteAlert(parsed);
+      result = await handleDeleteAlert(parsed);
+      break;
+
+    // ── Portfolio ────────────────────────────────────────────
+    case QueryAction.PORTFOLIO_SUMMARY:
+      result = await handlePortfolioSummary(parsed);
+      break;
+
+    case QueryAction.ADD_PORTFOLIO_WALLET:
+      result = await handleAddPortfolioWallet(parsed);
+      break;
+
+    case QueryAction.REMOVE_PORTFOLIO_WALLET:
+      result = await handleRemovePortfolioWallet(parsed);
+      break;
+
+    // ── Language ─────────────────────────────────────────────
+    case QueryAction.SET_LANGUAGE:
+      result = await handleSetLanguage(parsed);
+      break;
 
     // ── Help ─────────────────────────────────────────────────
     case QueryAction.HELP:
-      return handleHelp();
+      result = await handleHelp();
+      break;
 
     // ── Unknown ──────────────────────────────────────────────
     case QueryAction.UNKNOWN:
     default:
-      return handleUnknown(parsed);
+      result = await handleUnknown(parsed);
+      break;
   }
+
+  // Translate response if user prefers non-English
+  if (userLanguage !== 'en' && result.text) {
+    try {
+      result.text = await translateResponse(result.text, userLanguage);
+    } catch (err) {
+      logger.error('[queryRouter] Translation failed, returning original', { error: err, userLanguage });
+    }
+  }
+
+  return result;
 }
 
 // ─── Wallet & Balance Handlers ──────────────────────────────
@@ -167,6 +228,45 @@ async function handleWalletActivity(parsed: ParsedQuery, network: Network): Prom
   } catch (err) {
     logger.error('[queryRouter] getWalletActivity failed', { address, network, error: err });
     return { text: '❌ Failed to fetch wallet activity. Please try again later.' };
+  }
+}
+
+async function handleWalletStatus(parsed: ParsedQuery): Promise<QueryResult> {
+  const { userId, platform } = parsed;
+
+  if (!userId || !platform) {
+    return { text: '❌ Unable to check wallet status. Please try again.' };
+  }
+
+  try {
+    const { getConnectedWallet } = await import('../connectedWalletService');
+    const wallet = await getConnectedWallet(userId, platform as any);
+
+    if (!wallet) {
+      return {
+        text:
+          `👛 *No Wallet Connected*\n\n` +
+          `You haven't connected a wallet yet.\n\n` +
+          `Send /start to connect your XDC wallet.`,
+      };
+    }
+
+    const networkLabel = wallet.network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet';
+    const prefix = wallet.network === 'testnet' ? 'txdc' : 'xdc';
+    const displayAddress = wallet.address.startsWith('0x')
+      ? `${prefix}${wallet.address.slice(2)}`
+      : wallet.address;
+
+    return {
+      text:
+        `👛 *Wallet Connected*\n\n` +
+        `Network: ${networkLabel}\n` +
+        `Address: \`${displayAddress}\`\n\n` +
+        `Use /disconnect to remove this wallet.`,
+    };
+  } catch (err) {
+    logger.error('[queryRouter] handleWalletStatus failed', { userId, platform, error: err });
+    return { text: '❌ Failed to check wallet status. Please try again later.' };
   }
 }
 
@@ -463,40 +563,244 @@ async function handleBlockInfo(parsed: ParsedQuery, network: Network): Promise<Q
 function handleNetworkStats(parsed: ParsedQuery, network: Network): Promise<QueryResult> {
   return Promise.resolve({
     text:
-      `📈 *Network Stats*\n\n` +
-      `Network: ${network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n\n` +
-      `Network-wide statistics are not yet available. Try:\n` +
-      `• "Gas price"\n` +
-      `• "Block 12345"`,
+      `🌐 *Network Stats*\n\n` +
+      `Network: ${network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
+      `XDC Network is operational ✅\n\n` +
+      `Use /gas for current gas prices\n` +
+      `Use /block for latest block info`,
   });
 }
 
 // ─── Alert Handlers ─────────────────────────────────────────
 
-function handleCreateAlert(parsed: ParsedQuery): Promise<QueryResult> {
-  return Promise.resolve({
-    text:
-      `🔔 *Alert Created*\n\n` +
-      `Your alert has been recorded. You will be notified when the condition is met.\n\n` +
-      `Condition: ${JSON.stringify(parsed.condition || {})}`,
-  });
+async function handleCreateAlert(parsed: ParsedQuery): Promise<QueryResult> {
+  const { userId, platform, chatId, alertType, alertName, threshold, operator, currency, unit } = parsed;
+
+  if (!userId || !platform || !chatId) {
+    return { text: '❌ Unable to create alert. Please try again.' };
+  }
+
+  try {
+    const type = alertType || 'price_threshold';
+    const name = alertName || `${type} alert`;
+    const condition: any = {};
+
+    if (threshold !== undefined) condition.value = threshold;
+    if (operator) condition.operator = operator;
+    if (currency) condition.currency = currency;
+    if (unit) condition.unit = unit;
+
+    const alert = await createAlert({
+      userId,
+      platform: platform as any,
+      chatId,
+      type: type as any,
+      name,
+      condition,
+      cooldownMinutes: 60,
+    });
+
+    return {
+      text:
+        `🔔 *Alert Created*\n\n` +
+        `Name: **${alert.name}**\n` +
+        `Type: ${alert.type}\n` +
+        `Status: ✅ Active\n\n` +
+        `You'll be notified when the condition is met.`,
+    };
+  } catch (err) {
+    logger.error('[queryRouter] createAlert failed', { error: err });
+    return { text: '❌ Failed to create alert. Please try again later.' };
+  }
 }
 
-function handleListAlerts(parsed: ParsedQuery): Promise<QueryResult> {
-  return Promise.resolve({
-    text:
-      `📋 *Your Alerts*\n\n` +
-      `You have no active alerts.\n\n` +
-      `Create one with: "Alert me when XDC drops below $0.02"`,
-  });
+async function handleListAlerts(parsed: ParsedQuery): Promise<QueryResult> {
+  const { userId } = parsed;
+
+  if (!userId) {
+    return { text: '❌ Unable to list alerts. Please try again.' };
+  }
+
+  try {
+    const alerts = await listAlerts(userId);
+
+    if (alerts.length === 0) {
+      return {
+        text:
+          `📋 *Your Alerts*\n\n` +
+          `You have no active alerts.\n\n` +
+          `Create one with:\n` +
+          `• \`/alert gas > 50\`\n` +
+          `• \`/alert price < 0.02\`\n` +
+          `• \`Alert me when XDC drops below \$0.02\``,
+      };
+    }
+
+    let text = `📋 *Your Alerts (${alerts.length})*\n\n`;
+    alerts.forEach((alert, i) => {
+      const status = alert.status === 'active' ? '✅' : alert.status === 'paused' ? '⏸️' : '🔔';
+      text += `${i + 1}. ${status} **${alert.name}** (${alert.type})\n`;
+      if (alert.condition.operator && alert.condition.value) {
+        text += `   ${alert.condition.operator} ${alert.condition.value} ${alert.condition.currency || alert.condition.unit || ''}\n`;
+      }
+      text += `   ID: \`${alert._id}\`\n`;
+      text += `   Triggers: ${alert.triggerCount}${alert.maxTriggers ? `/${alert.maxTriggers}` : ''}\n\n`;
+    });
+
+    text += 'To delete: \`/deletealert <id>\`';
+
+    return { text };
+  } catch (err) {
+    logger.error('[queryRouter] listAlerts failed', { error: err });
+    return { text: '❌ Failed to list alerts. Please try again later.' };
+  }
 }
 
-function handleDeleteAlert(parsed: ParsedQuery): Promise<QueryResult> {
-  return Promise.resolve({
-    text:
-      `🗑️ *Alert Deleted*\n\n` +
-      `The alert has been removed.`,
-  });
+async function handleDeleteAlert(parsed: ParsedQuery): Promise<QueryResult> {
+  const { alertId, userId } = parsed;
+
+  if (!alertId) {
+    return { text: '❌ Please provide an alert ID.\n\nUsage: /deletealert <id>' };
+  }
+
+  try {
+    const success = await deleteAlert(alertId, userId || '');
+
+    if (success) {
+      return {
+        text: `🗑️ *Alert Deleted*\n\nThe alert has been removed.`,
+      };
+    }
+    return {
+      text: '⚠️ Alert not found or already deleted.',
+    };
+  } catch (err) {
+    logger.error('[queryRouter] deleteAlert failed', { error: err });
+    return { text: '❌ Failed to delete alert. Please try again later.' };
+  }
+}
+
+// ─── Portfolio Handlers ─────────────────────────────────────
+
+async function handlePortfolioSummary(parsed: ParsedQuery): Promise<QueryResult> {
+  const { userId, platform } = parsed;
+
+  if (!userId || !platform) {
+    return { text: '❌ Unable to fetch portfolio. Please try again.' };
+  }
+
+  try {
+    const { getPortfolioSummary } = await import('../portfolioService');
+    const portfolio = await getPortfolioSummary(userId, platform);
+
+    if (portfolio.totalWallets === 0) {
+      return {
+        text:
+          `📊 *Portfolio*\n\n` +
+          `No wallets in your portfolio yet.\n\n` +
+          `Add one with:\n` +
+          `• "Add wallet xdc123... to portfolio"\n` +
+          `• "Track wallet 0xabc..."`,
+      };
+    }
+
+    let text =
+      `📊 *Portfolio Overview*\n\n` +
+      `Wallets: **${portfolio.totalWallets}**\n` +
+      `Total Balance: **${portfolio.totalBalanceXDC} XDC** (~$${portfolio.totalBalanceUSD})\n` +
+      `Last Updated: ${portfolio.lastUpdated.toLocaleString()}\n\n`;
+
+    portfolio.wallets.forEach((w, i) => {
+      const label = w.label ? ` (${w.label})` : '';
+      text += `${i + 1}. \`${w.address.slice(0, 16)}...\`${label}\n`;
+      text += `   ${w.network === 'testnet' ? '🧪' : '🌐'} ${w.balanceXDC} XDC | ${w.txCount} txs\n`;
+    });
+
+    return { text, rawData: portfolio };
+  } catch (err) {
+    logger.error('[queryRouter] handlePortfolioSummary failed', { userId, platform, error: err });
+    return { text: '❌ Failed to fetch portfolio. Please try again later.' };
+  }
+}
+
+async function handleAddPortfolioWallet(parsed: ParsedQuery): Promise<QueryResult> {
+  const { userId, platform, address, network } = parsed;
+
+  if (!userId || !platform) {
+    return { text: '❌ Unable to add wallet. Please try again.' };
+  }
+
+  const walletAddress = address || parsed.wallet || '';
+  if (!walletAddress) {
+    return { text: '❌ Please provide a wallet address.\n\nExample: "Add wallet xdc123... to portfolio"' };
+  }
+
+  try {
+    const { addPortfolioWallet } = await import('../portfolioService');
+    const result = await addPortfolioWallet(
+      userId,
+      platform,
+      walletAddress,
+      network || 'mainnet'
+    );
+    return { text: result.message };
+  } catch (err) {
+    logger.error('[queryRouter] handleAddPortfolioWallet failed', { userId, address, error: err });
+    return { text: '❌ Failed to add wallet to portfolio.' };
+  }
+}
+
+async function handleRemovePortfolioWallet(parsed: ParsedQuery): Promise<QueryResult> {
+  const { userId, platform, address } = parsed;
+
+  if (!userId || !platform) {
+    return { text: '❌ Unable to remove wallet. Please try again.' };
+  }
+
+  const walletAddress = address || parsed.wallet || '';
+  if (!walletAddress) {
+    return { text: '❌ Please provide a wallet address.\n\nExample: "Remove wallet xdc123... from portfolio"' };
+  }
+
+  try {
+    const { removePortfolioWallet } = await import('../portfolioService');
+    const result = await removePortfolioWallet(userId, platform, walletAddress);
+    return { text: result.message };
+  } catch (err) {
+    logger.error('[queryRouter] handleRemovePortfolioWallet failed', { userId, address, error: err });
+    return { text: '❌ Failed to remove wallet from portfolio.' };
+  }
+}
+
+// ─── Language Handler ───────────────────────────────────────
+
+async function handleSetLanguage(parsed: ParsedQuery): Promise<QueryResult> {
+  const { userId, platform, language } = parsed;
+  const lang = language || 'en';
+
+  if (!['en', 'hi', 'mr'].includes(lang)) {
+    return { text: '❌ Invalid language. Use: en, hi, or mr' };
+  }
+
+  if (userId && platform) {
+    try {
+      const { UserModel } = await import('../../models/User');
+      await UserModel.updateOne(
+        { telegramId: parseInt(userId) },
+        { preferredLanguage: lang }
+      );
+    } catch (err) {
+      logger.error('[queryRouter] handleSetLanguage failed', { error: err });
+    }
+  }
+
+  const messages: Record<string, Record<string, string>> = {
+    en: { en: '✅ Language set to English', hi: '✅ भाषा अंग्रेजी में सेट की गई', mr: '✅ भाषा इंग्रजीमध्ये सेट केली' },
+    hi: { en: '✅ Language set to Hindi', hi: '✅ भाषा हिंदी में सेट की गई', mr: '✅ भाषा हिंदीमध्ये सेट केली' },
+    mr: { en: '✅ Language set to Marathi', hi: '✅ भाषा मराठी में सेट की गई', mr: '✅ भाषा मराठीत सेट केली' },
+  };
+
+  return { text: messages[lang][lang] };
 }
 
 // ─── Utility Handlers ───────────────────────────────────────
@@ -516,8 +820,16 @@ function handleHelp(): Promise<QueryResult> {
       `*Network Queries:*\n` +
       `• "Gas price"\n` +
       `• "Block 12345"\n\n` +
+      `*Alerts:*\n` +
+      `• "Alert me when XDC drops below \$0.02"\n` +
+      `• "Show my alerts"\n` +
+      `• "Delete alert #1"\n\n` +
+      `*Language:*\n` +
+      `• /language en — English\n` +
+      `• /language hi — Hindi\n` +
+      `• /language mr — Marathi\n\n` +
       `*Commands:*\n` +
-      `/help, /status, /track, /untrack, /list, /balance, /tx, /price`,
+      `/start, /menu, /status, /track, /untrack, /list, /balance, /tx, /price, /premium, /language, /help`,
   });
 }
 

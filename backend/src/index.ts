@@ -8,12 +8,14 @@ import { createTelegramBot, createWhatsAppBot } from './bots';
 import { createSlackBot, handleSlackEvent } from './bots/slack';
 import { createXBot, getXWebhookRouter } from './bots/x';
 import { connectMongo, redis } from './database';
+import { connectMongo as connectMongoose } from './database/mongoose';
 import { startCronJobs } from './cron/jobs';
 import { requestLogger } from './middleware/requestLogger';
 import { errorHandler } from './middleware/errorHandler';
 import { env } from './config/env';
 import { logger } from './utils/logger';
 import { setBotInstance } from './services/notification/telegramNotify';
+import { handleWebhook } from './services/webhook/webhookService';
 
 function verifySlackSignature(rawBody: Buffer, req: Request): boolean {
   if (!env.SLACK_SIGNING_SECRET) {
@@ -47,6 +49,7 @@ function verifySlackSignature(rawBody: Buffer, req: Request): boolean {
 
 async function main(): Promise<void> {
   await connectMongo();
+  await connectMongoose();
 
   const app = express();
   app.use(helmet());
@@ -93,6 +96,18 @@ async function main(): Promise<void> {
 
   // X webhook router
   app.use(getXWebhookRouter());
+
+  // External webhook endpoint for real-time alerts
+  app.post('/webhook/alerts', handleWebhook);
+
+  // Stripe webhook endpoint (raw body required for signature verification)
+  app.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
+    const signature = req.headers['stripe-signature'] as string;
+    const payload = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : JSON.stringify(req.body);
+    const { handleStripeWebhook } = await import('./services/billing/webhookHandler');
+    const result = await handleStripeWebhook(payload, signature);
+    res.status(result.success ? 200 : 400).json(result);
+  });
 
   app.use(routes);
   app.use(errorHandler);

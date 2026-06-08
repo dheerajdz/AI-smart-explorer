@@ -57,7 +57,12 @@ export function getTxExplorerUrl(network: Network, txHash: string): string {
 
 /**
  * Get explorer link for an address.
+ * Testnet explorer uses 0x format, not txdc prefix.
  */
 export function getAddressExplorerUrl(network: Network, address: string): string {
+  // Testnet explorer expects 0x format
+  if (network === 'testnet' && address.startsWith('txdc')) {
+    address = '0x' + address.slice(4);
+  }
   return `${getExplorerBaseUrl(network)}/address/${address}`;
 }

@@ -9,13 +9,29 @@ const envSchema = z.object({
   TELEGRAM_BOT_TOKEN: z.string().min(1, 'TELEGRAM_BOT_TOKEN is required'),
   
   // ── Kimi AI ─────────────────────────────────────────────────
-  KIMI_API_KEY: z.string().min(1, 'KIMI_API_KEY is required'),
+  KIMI_API_KEY: z.string().optional().default(''),
   KIMI_BASE_URL: z.string().url().optional().default('https://api.moonshot.cn/v1'),
   KIMI_MODEL: z.string().optional().default('moonshot-v1-8k'),
   
+  // ── OpenRouter AI ───────────────────────────────────────────
+  OPENROUTER_API_KEY: z.string().optional().default(''),
+  OPENROUTER_MODEL: z.string().optional().default('meta-llama/llama-3.1-8b-instruct:free'),
+  
+  // ── Groq AI ──────────────────────────────────────────────────
+  GROQ_API_KEY: z.string().optional().default(''),
+  GROQ_MODEL: z.string().optional().default('llama-3.3-70b-versatile'),
+  
+  // ── Stripe Billing ──────────────────────────────────────────
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  STRIPE_PRO_PRICE_ID: z.string().optional(),
+  STRIPE_ENTERPRISE_PRICE_ID: z.string().optional(),
+  
   // ── Blockchain APIs ─────────────────────────────────────────
   XDCSCAN_API: z.string().url().optional().default('https://api.xdcscan.io/api'),
-  XDCSCAN_TESTNET_API: z.string().url().optional().default('https://api-testnet.xdcscan.io/api'),
+  XDCSCAN_TESTNET_API: z.string().url().optional().default('https://erpc.apothem.network'),
+  XDC_TESTNET_RPC: z.string().url().optional().default('https://erpc.apothem.network'),
   
   // ── Twilio (WhatsApp) ───────────────────────────────────────
   TWILIO_ACCOUNT_SID: z.string().min(1, 'TWILIO_ACCOUNT_SID is required'),

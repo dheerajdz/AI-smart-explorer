@@ -6,7 +6,9 @@ import {
   getConnectedWallet,
   hasConnectedWallet,
 } from '../../services/connectedWalletService';
+import { getUserTranslation, setUserLanguage } from '../../services/i18nService';
 import { ConversationStateService } from '../../services/conversation';
+import { getSupportedLanguages } from '../../i18n';
 
 /* ------------------------------------------------------------------ */
 /*  Wallet Connect Flow                                               */
@@ -26,9 +28,13 @@ export async function startWalletFlow(ctx: Context): Promise<void> {
 }
 
 async function showWelcomeNew(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+  const t = await getUserTranslation(String(telegramId), 'telegram');
+
   const text =
-    `👋 *Welcome to Smart AI Explorer!*\n\n` +
-    `I am your AI assistant for the *XDC blockchain*.\n\n` +
+    `👋 *${t.welcome_title}*\n\n` +
+    `${t.welcome_description}\n\n` +
     `You can text me things like:\n` +
     `• "Balance of xdc..."\n` +
     `• "Show my transactions"\n` +
@@ -54,17 +60,19 @@ export async function showWelcomeBack(ctx: Context): Promise<void> {
   const address = wallet?.address ?? '';
   const networkLabel = wallet?.network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet';
   const shortAddr = address ? `${address.slice(0, 8)}...${address.slice(-6)}` : 'Unknown';
+  const t = await getUserTranslation(String(telegramId), 'telegram');
 
   const text =
-    `👋 *Welcome back!*\n\n` +
-    `Your connected wallet:\n` +
+    `👋 *${t.welcome_title}*\n\n` +
+    `${t.welcome_connected}:\n` +
     `${networkLabel} \`${shortAddr}\`\n\n` +
     `What would you like to do?`;
 
   const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('💰 Balance', 'menu_balance')],
-    [Markup.button.callback('📜 Transactions', 'menu_transactions')],
-    [Markup.button.callback('🔔 Track Wallet', 'menu_track')],
+    [Markup.button.callback(t.btn_view_balance, 'menu_balance')],
+    [Markup.button.callback(t.btn_view_transactions, 'menu_transactions')],
+    [Markup.button.callback(t.btn_track_wallet, 'menu_track')],
+    [Markup.button.callback('🚨 My Alerts', 'menu_alerts')],
     [Markup.button.callback('🤖 Ask AI', 'menu_ask_ai')],
     [Markup.button.callback('⚙️ Settings', 'menu_settings')],
   ]);
@@ -98,17 +106,42 @@ export async function handleNetworkSelection(ctx: Context): Promise<void> {
   const callbackData = (ctx as any).callbackQuery?.data;
   const network = callbackData === 'connect_network_testnet' ? 'testnet' : 'mainnet';
 
-  await ConversationStateService.setState({
-    step: 'enter_wallet_address',
-    telegramId,
-    network,
-  });
+  if (network === 'mainnet') {
+    // Show network stats before connecting
+    const { cmdStatus } = await import('../../services/blockchainCommands');
+    const result = await cmdStatus();
+    await ctx.reply(result.text, { parse_mode: 'Markdown' });
+    
+    // Then ask for wallet
+    await ConversationStateService.setState({
+      step: 'enter_wallet_address',
+      telegramId,
+      network,
+    });
+    
+    await ctx.reply(
+      `🌐 *XDC Mainnet* selected.\n\nPlease enter your wallet address:`,
+      Markup.removeKeyboard()
+    );
+  } else {
+    // Testnet: show testnet stats before connecting
+    const { cmdStatus } = await import('../../services/blockchainCommands');
+    const result = await cmdStatus();
+    await ctx.reply(result.text, { parse_mode: 'Markdown' });
+    
+    await ConversationStateService.setState({
+      step: 'enter_wallet_address',
+      telegramId,
+      network,
+    });
 
-  const label = network === 'testnet' ? '🧪 XDC Testnet' : '🌐 XDC Mainnet';
-  await ctx.reply(
-    `${label} selected.\n\nPlease enter your wallet address:`,
-    Markup.removeKeyboard()
-  );
+    const label = '🧪 XDC Testnet';
+    await ctx.reply(
+      `${label} selected.\n\nPlease enter your wallet address:`,
+      Markup.removeKeyboard()
+    );
+  }
+  
   await ctx.answerCbQuery();
 }
 
@@ -149,14 +182,19 @@ export async function handleWalletAddressInput(ctx: Context): Promise<void> {
 /* ------------------------------------------------------------------ */
 
 export async function showMainMenu(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+  const t = await getUserTranslation(String(telegramId), 'telegram');
+
   const text =
     `🏠 *Main Menu*\n\n` +
     `What would you like to do?`;
 
   const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('💰 Balance', 'menu_balance')],
-    [Markup.button.callback('📜 Transactions', 'menu_transactions')],
-    [Markup.button.callback('🔔 Track Wallet', 'menu_track')],
+    [Markup.button.callback(t.btn_view_balance, 'menu_balance')],
+    [Markup.button.callback(t.btn_view_transactions, 'menu_transactions')],
+    [Markup.button.callback(t.btn_track_wallet, 'menu_track')],
+    [Markup.button.callback('🚨 My Alerts', 'menu_alerts')],
     [Markup.button.callback('🤖 Ask AI', 'menu_ask_ai')],
     [Markup.button.callback('⚙️ Settings', 'menu_settings')],
   ]);
@@ -254,12 +292,22 @@ export async function handleMenuAskAI(ctx: Context): Promise<void> {
 /* ------------------------------------------------------------------ */
 
 export async function handleMenuSettings(ctx: Context): Promise<void> {
-  const text = '⚙️ *Settings*\n\nWhat would you like to do?';
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  // Get user's current language preference from ConnectedWallet
+  const wallet = await getConnectedWallet(String(telegramId), 'telegram');
+  const currentLang = wallet?.language || 'en';
+  const langNames: Record<string, string> = { en: 'English', hi: 'Hindi', mr: 'Marathi' };
+  const t = await getUserTranslation(String(telegramId), 'telegram');
+
+  const text = `⚙️ *Settings*\n\n${t.prompt_select_language}: **${langNames[currentLang]}**\n\nWhat would you like to do?`;
 
   const keyboard = Markup.inlineKeyboard([
     [Markup.button.callback('🔔 Notification Settings', 'settings_notifications')],
+    [Markup.button.callback('🌐 Language', 'settings_language')],
     [Markup.button.callback('❌ Disconnect Wallet', 'settings_disconnect')],
-    [Markup.button.callback('⬅️ Back to Main Menu', 'menu_back')],
+    [Markup.button.callback(t.btn_back, 'menu_back')],
   ]);
 
   await ctx.reply(text, { parse_mode: 'Markdown', ...keyboard });
@@ -300,15 +348,142 @@ export async function handleMenuBack(ctx: Context): Promise<void> {
 }
 
 export async function handleSettingsNotifications(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const { cmdListAlerts } = await import('../../services/blockchainCommands');
+  const result = await cmdListAlerts(String(telegramId));
+
+  await ctx.reply(result.text, { parse_mode: 'Markdown' });
+
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('➕ Create New Alert', 'alert_create')],
+    [Markup.button.callback('⬅️ Back to Settings', 'menu_settings')],
+  ]);
+
   await ctx.reply(
-    '🔔 *Notification Settings*\n\nComing soon!\n\n' +
-    'You will be able to choose:\n' +
-    '• Successful transactions\n' +
-    '• Failed transactions\n' +
-    '• Incoming transfers\n' +
-    '• Outgoing transfers\n' +
-    '• Contract interactions\n' +
-    '• Large transactions only',
+    '🔔 *Manage Alerts*\n\nCreate alerts for price, gas, transactions, and more.',
+    { parse_mode: 'Markdown', ...keyboard }
+  );
+  await ctx.answerCbQuery();
+}
+
+export async function handleSettingsLanguage(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const text =
+    `🌐 *Select Language*\n\n` +
+    `Choose your preferred language:`;
+
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('🇬🇧 English', 'language_en')],
+    [Markup.button.callback('🇮🇳 Hindi', 'language_hi')],
+    [Markup.button.callback('🇮🇳 Marathi', 'language_mr')],
+    [Markup.button.callback('⬅️ Back to Settings', 'menu_settings')],
+  ]);
+
+  await ctx.reply(text, { parse_mode: 'Markdown', ...keyboard });
+  await ctx.answerCbQuery();
+}
+
+export async function handleLanguageSelection(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const callbackData = (ctx as any).callbackQuery?.data;
+  const lang = callbackData?.replace('language_', '') || 'en';
+
+  try {
+    // Update ConnectedWallet language
+    await setUserLanguage(String(telegramId), 'telegram', lang);
+
+    const messages: Record<string, string> = {
+      en: '✅ Language set to English',
+      hi: '✅ भाषा हिंदी में सेट की गई',
+      mr: '✅ भाषा मराठीत सेट केली',
+    };
+
+    await ctx.reply(messages[lang] || messages['en'], { parse_mode: 'Markdown' });
+  } catch (err) {
+    logger.error('handleLanguageSelection failed', { error: err });
+    await ctx.reply('❌ Failed to set language. Please try again.');
+  }
+
+  await ctx.answerCbQuery();
+}
+
+export async function handleMenuAlerts(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const { cmdListAlerts } = await import('../../services/blockchainCommands');
+  const result = await cmdListAlerts(String(telegramId));
+
+  await ctx.reply(result.text, { parse_mode: 'Markdown' });
+
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('➕ Create Alert', 'alert_create')],
+    [Markup.button.callback('⬅️ Back to Menu', 'menu_back')],
+  ]);
+
+  await ctx.reply('🚨 *My Alerts*', { parse_mode: 'Markdown', ...keyboard });
+  await ctx.answerCbQuery();
+}
+
+export async function handleMenuPortfolio(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  try {
+    const { getPortfolioSummary } = await import('../../services/portfolioService');
+    const portfolio = await getPortfolioSummary(String(telegramId), 'telegram');
+
+    if (portfolio.totalWallets === 0) {
+      await ctx.reply(
+        '📊 *Portfolio*\n\n' +
+        'No wallets in your portfolio yet.\n\n' +
+        'Add one with:\n' +
+        '• "Add wallet xdc123... to portfolio"\n' +
+        '• "Track wallet 0xabc..."',
+        { parse_mode: 'Markdown' }
+      );
+      await ctx.answerCbQuery();
+      return;
+    }
+
+    let text =
+      `📊 *Portfolio Overview*\n\n` +
+      `Wallets: **${portfolio.totalWallets}**\n` +
+      `Total Balance: **${portfolio.totalBalanceXDC} XDC** (~$${portfolio.totalBalanceUSD})\n` +
+      `Last Updated: ${portfolio.lastUpdated.toLocaleString()}\n\n`;
+
+    portfolio.wallets.forEach((w, i) => {
+      const label = w.label ? ` (${w.label})` : '';
+      text += `${i + 1}. \`${w.address.slice(0, 16)}...\`${label}\n`;
+      text += `   ${w.network === 'testnet' ? '🧪' : '🌐'} ${w.balanceXDC} XDC | ${w.txCount} txs\n`;
+    });
+
+    await ctx.reply(text, { parse_mode: 'Markdown' });
+  } catch (err) {
+    logger.error('handleMenuPortfolio failed', { error: err });
+    await ctx.reply('❌ Failed to fetch portfolio. Please try again.');
+  }
+
+  await ctx.answerCbQuery();
+}
+
+export async function handleAlertCreate(ctx: Context): Promise<void> {
+  await ctx.reply(
+    '➕ *Create Alert*\n\n' +
+    'Send me a message like:\n' +
+    '• "Alert me when XDC drops below $0.02"\n' +
+    '• "Alert me when gas goes above 50 Gwei"\n' +
+    '• "Alert me when a transaction fails for xdc..."\n\n' +
+    'Or use commands:\n' +
+    '• /alert gas > 50\n' +
+    '• /alert price < 0.02\n' +
+    '• /alert failed xdc...',
     { parse_mode: 'Markdown' }
   );
   await ctx.answerCbQuery();

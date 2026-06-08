@@ -3,6 +3,7 @@ import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 import {
   startCommand,
+  menuCommand,
   handleSignupAction,
   handleSigninAction,
   handleResendSignupOTP,
@@ -10,6 +11,14 @@ import {
   handleCancel,
   logoutCommand,
   handleLogoutAction,
+  trackCommand,
+  untrackCommand,
+  listCommand,
+  balanceCommand,
+  txCommand,
+  priceCommand,
+  statusCommand,
+  helpCommand,
 } from './commands';
 import {
   showMainMenu,
@@ -23,7 +32,20 @@ import {
   handleDisconnectConfirm,
   handleMenuBack,
   handleSettingsNotifications,
+  handleMenuAlerts,
+  handleMenuPortfolio,
+  handleAlertCreate,
+  handleSettingsLanguage,
+  handleLanguageSelection,
 } from './walletConnect';
+import {
+  subscriptionCommand,
+  upgradeCommand,
+  handleBillingCheckout,
+  handleBillingPortal,
+} from './billingCommands';
+import { portfolioCommand } from './commands/portfolioCommand';
+import { reputationCommand, leaderboardCommand } from './commands/reputationCommand';
 import { handleTelegramMessage } from './adapter';
 
 export function createBot(): Telegraf {
@@ -31,7 +53,27 @@ export function createBot(): Telegraf {
 
   /* -------------------- Commands -------------------- */
   bot.command('start', startCommand);
+  bot.command('menu', menuCommand);
   bot.command('logout', logoutCommand);
+  bot.command('subscription', subscriptionCommand);
+  bot.command('portfolio', portfolioCommand);
+  bot.command('reputation', reputationCommand);
+  bot.command('leaderboard', leaderboardCommand);
+  bot.command('upgrade', upgradeCommand);
+  bot.command('track', trackCommand);
+  bot.command('untrack', untrackCommand);
+  bot.command('list', listCommand);
+  bot.command('balance', balanceCommand);
+  bot.command('tx', txCommand);
+  bot.command('price', priceCommand);
+  bot.command('status', statusCommand);
+  bot.command('help', helpCommand);
+
+  /* -------------------- Billing Callbacks -------------------- */
+  bot.action('billing_upgrade', upgradeCommand);
+  bot.action('billing_checkout_pro', handleBillingCheckout);
+  bot.action('billing_checkout_enterprise', handleBillingCheckout);
+  bot.action('billing_portal', handleBillingPortal);
 
   /* -------------------- Auth Callbacks -------------------- */
   bot.action('action_signup', handleSignupAction);
@@ -49,14 +91,25 @@ export function createBot(): Telegraf {
   bot.action('menu_balance', handleMenuBalance);
   bot.action('menu_transactions', handleMenuTransactions);
   bot.action('menu_track', handleMenuTrack);
+  bot.action('menu_alerts', handleMenuAlerts);
+  bot.action('menu_portfolio', handleMenuPortfolio);
   bot.action('menu_ask_ai', handleMenuAskAI);
   bot.action('menu_settings', handleMenuSettings);
   bot.action('menu_back', handleMenuBack);
 
   /* -------------------- Settings -------------------- */
   bot.action('settings_notifications', handleSettingsNotifications);
+  bot.action('settings_language', handleSettingsLanguage);
   bot.action('settings_disconnect', handleSettingsDisconnect);
   bot.action('disconnect_confirm', handleDisconnectConfirm);
+
+  /* -------------------- Language -------------------- */
+  bot.action('language_en', handleLanguageSelection);
+  bot.action('language_hi', handleLanguageSelection);
+  bot.action('language_mr', handleLanguageSelection);
+
+  /* -------------------- Alert actions -------------------- */
+  bot.action('alert_create', handleAlertCreate);
 
   /* -------------------- Dashboard callbacks (placeholders) -------------------- */
   bot.action('dashboard_wallet', async (ctx: Context) => {

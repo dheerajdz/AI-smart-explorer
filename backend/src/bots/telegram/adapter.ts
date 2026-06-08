@@ -1,6 +1,7 @@
 import { Context } from 'telegraf';
 import { logger } from '../../utils/logger';
 import { dispatch } from '../shared';
+import { setUserLanguage } from '../../services/i18nService';
 
 export async function handleTelegramMessage(ctx: Context): Promise<void> {
   const telegramId = ctx.from?.id;
@@ -12,6 +13,24 @@ export async function handleTelegramMessage(ctx: Context): Promise<void> {
   }
 
   const input = text.trim();
+
+  // Auto-detect language from Telegram locale on first interaction
+  const { hasConnectedWallet } = await import('../../services/connectedWalletService');
+  const isFirstInteraction = !(await hasConnectedWallet(String(telegramId), 'telegram'));
+  
+  if (isFirstInteraction && ctx.from?.language_code) {
+    const locale = ctx.from.language_code;
+    const langMap: Record<string, string> = {
+      'en': 'en',
+      'hi': 'hi',
+      'mr': 'mr',
+    };
+    const detectedLang = langMap[locale] || 'en';
+    
+    // Set language preference
+    await setUserLanguage(String(telegramId), 'telegram', detectedLang);
+    logger.info('[telegram/adapter] Auto-detected language', { telegramId, locale, detectedLang });
+  }
 
   // Skip if this is part of an active conversation state (auth/wallet connect)
   // Those are handled by the legacy commands.ts flow

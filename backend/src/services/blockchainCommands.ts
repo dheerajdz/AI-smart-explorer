@@ -15,8 +15,11 @@ import {
   getGasPrice,
   getBlockByNumber,
   getFailedTransactions,
+  getNetworkStats,
 } from './blockchain';
 import * as walletService from './walletService';
+import { getReputation, getLeaderboard, getTier, getTierEmoji } from './reputation/reputationService';
+import { getTranslationByLang, TranslationKeys } from '../services/i18nService';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -28,37 +31,41 @@ export interface CommandResult {
 
 // ─── Helper ─────────────────────────────────────────────────
 
-function formatError(context: string, error: unknown): CommandResult {
+function formatError(context: string, error: unknown, lang: string = 'en'): CommandResult {
   logger.error(`[blockchainCommands] ${context} failed`, { error });
-  return { success: false, text: '❌ Failed to fetch data. Please try again later.' };
+  const t = getTranslationByLang(lang);
+  return { success: false, text: t.err_server_error };
 }
 
 // ─── 1. Balance ─────────────────────────────────────────────
 
-export async function cmdBalance(address: string): Promise<CommandResult> {
+export async function cmdBalance(address: string, network?: Network, lang: string = 'en'): Promise<CommandResult> {
+  const t = getTranslationByLang(lang);
+  
   if (!isValidXdcAddress(address)) {
     return {
       success: false,
-      text: '❌ Invalid address. Must start with `xdc`, `txdc`, or `0x` (42 chars).',
+      text: t.err_invalid_address,
     };
   }
 
   try {
-    const network = detectNetwork(address);
-    const data = await getWalletBalance(address, network);
+    const detectedNetwork = network || detectNetwork(address);
+    const data = await getWalletBalance(address, detectedNetwork);
 
     return {
       success: true,
       text:
-        `💰 *Wallet Balance*\n\n` +
-        `Network: ${network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
+        `💰 *${t.cmd_balance_title}*\n\n` +
+        `Network: ${detectedNetwork === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
         `Address: \`${data.address}\`\n` +
-        `Balance: **${data.balanceXDC} XDC**\n\n` +
-        `[View on Explorer](${data.explorerUrl})`,
+        `Balance: **${data.balanceXDC} ${detectedNetwork === 'testnet' ? 'TXDC' : 'XDC'}**\n\n` +
+        `[View on Explorer](${data.explorerUrl})\n\n` +
+        `_💡 Tip: Use /reputation ${address} to see reputation score_`,
       rawData: data,
     };
   } catch (err) {
-    return formatError('cmdBalance', err);
+    return formatError('cmdBalance', err, lang);
   }
 }
 
@@ -84,11 +91,14 @@ export async function cmdTransactions(address: string, limit: number = 5): Promi
       `Showing: ${data.transactions.length} of ${data.totalCount}\n\n`;
 
     if (data.transactions.length > 0) {
-      data.transactions.forEach((tx, i) => {
+      data.transactions.slice(0, 10).forEach((tx, i) => {
         const value = Number(tx.value) / 1e18;
         const status = tx.status === 'success' ? '✅' : tx.status === 'failed' ? '❌' : '⏳';
-        text += `${i + 1}. ${status} \`${tx.hash.slice(0, 20)}...\` — ${value} XDC\n`;
+        text += `${i + 1}. ${status} \`${tx.hash.slice(0, 16)}...\` — ${value.toFixed(4)} XDC\n`;
       });
+      if (data.transactions.length > 10) {
+        text += `\n...and ${data.transactions.length - 10} more\n`;
+      }
       text += `\n[View on Explorer](${explorerUrl})`;
     } else {
       text += 'No transactions found.';
@@ -102,12 +112,30 @@ export async function cmdTransactions(address: string, limit: number = 5): Promi
 
 // ─── 3. Track Wallet ────────────────────────────────────────
 
-export function cmdTrack(address: string, userId: string): CommandResult {
+export async function cmdTrack(address: string, userId: string, platform?: string): Promise<CommandResult> {
   if (!isValidXdcAddress(address)) {
     return {
       success: false,
       text: '❌ Invalid address. Must start with `xdc`, `txdc`, or `0x` (42 chars).',
     };
+  }
+
+  // ── Check tier limits ────────────────────────────────────
+  if (platform) {
+    const { canAddPortfolioWallet, incrementUsage } = await import('../billing/subscriptionService');
+    const wallets = walletService.listWallets(userId);
+    const canAdd = await canAddPortfolioWallet(userId, platform as any, wallets.length);
+    if (!canAdd) {
+      return {
+        success: false,
+        text:
+          '❌ *Wallet Limit Reached*\n\n' +
+          'You have reached the maximum number of tracked wallets for your plan.\n\n' +
+          '💎 Upgrade to Pro for more wallets:\n' +
+          '• /upgrade',
+      };
+    }
+    await incrementUsage(userId, platform as any, 'portfolioWallets');
   }
 
   const network = detectNetwork(address);
@@ -176,13 +204,14 @@ export function cmdList(userId: string): CommandResult {
 
 // ─── 6. Gas Price ───────────────────────────────────────────
 
-export async function cmdGasPrice(network: Network = 'mainnet'): Promise<CommandResult> {
+export async function cmdGasPrice(network: Network = 'mainnet', lang: string = 'en'): Promise<CommandResult> {
+  const t = getTranslationByLang(lang);
   try {
     const data = await getGasPrice(network);
     return {
       success: true,
       text:
-        `⛽ *Gas Price*\n\n` +
+        `⛽ *${t.cmd_gas_title}*\n\n` +
         `Network: ${network === 'testnet' ? '🧪 Testnet' : '🌐 Mainnet'}\n` +
         `Safe: **${data.safeGasPrice} Gwei**\n` +
         `Standard: **${data.proposeGasPrice} Gwei**\n` +
@@ -190,7 +219,7 @@ export async function cmdGasPrice(network: Network = 'mainnet'): Promise<Command
       rawData: data,
     };
   } catch (err) {
-    return formatError('cmdGasPrice', err);
+    return formatError('cmdGasPrice', err, lang);
   }
 }
 
@@ -280,7 +309,8 @@ export async function cmdWalletActivity(address: string): Promise<CommandResult>
         `First Seen: ${data.firstSeen ? new Date(data.firstSeen).toLocaleDateString() : 'N/A'}\n` +
         `Last Seen: ${data.lastSeen ? new Date(data.lastSeen).toLocaleDateString() : 'N/A'}\n` +
         `Contracts Interacted: **${data.uniqueContractsInteracted}**\n\n` +
-        `[View on Explorer](${explorerUrl})`,
+        `[View on Explorer](${explorerUrl})\n\n` +
+        `_💡 Tip: Use /reputation ${address} to see reputation score_`,
       rawData: data,
     };
   } catch (err) {
@@ -329,11 +359,12 @@ export async function cmdLargeTransfers(address: string, thresholdXDC: number = 
 
 // ─── 11. Price (Stub) ───────────────────────────────────────
 
-export function cmdPrice(): CommandResult {
+export function cmdPrice(lang: string = 'en'): CommandResult {
+  const t = getTranslationByLang(lang);
   return {
     success: true,
     text:
-      '📈 *XDC Price*\n\n' +
+      `📈 *${t.cmd_price_title}*\n\n` +
       'Current price data is not yet available.\n\n' +
       'Try these instead:\n' +
       '• `/balance <address>`\n' +
@@ -343,25 +374,263 @@ export function cmdPrice(): CommandResult {
 
 // ─── 12. Status ─────────────────────────────────────────────
 
-export async function cmdStatus(): Promise<CommandResult> {
+export async function cmdStatus(lang: string = 'en'): Promise<CommandResult> {
+  const t = getTranslationByLang(lang);
   try {
-    const data = await getGasPrice('mainnet');
-    return {
-      success: true,
-      text:
-        `🌐 *Network Status*\n\n` +
-        `Network: XDC Mainnet\n` +
-        `Gas Safe: **${data.safeGasPrice} Gwei**\n` +
-        `Gas Standard: **${data.proposeGasPrice} Gwei**\n` +
-        `Gas Fast: **${data.fastGasPrice} Gwei**\n\n` +
-        `All systems operational ✅`,
-    };
+    // Default to mainnet, but could accept network param in future
+    const [gasData, stats] = await Promise.all([
+      getGasPrice('mainnet'),
+      getNetworkStats('mainnet'),
+    ]);
+    
+    let text =
+      `🌐 *${t.cmd_status_title}*\n\n` +
+      `📊 *Network Stats*\n` +
+      `Latest Block: **${stats.latestBlock}**\n` +
+      `Total Blocks: **${stats.totalBlocks}**\n` +
+      `Block TXs: **${stats.totalTransactions}**\n` +
+      `XDC Price: **$${stats.xdcPrice}**\n\n`;
+    
+    if (stats.latestTransactions.length > 0) {
+      text += `📄 *Latest Transactions*\n`;
+      stats.latestTransactions.forEach((tx, i) => {
+        text += `${i + 1}. \`${tx.hash.slice(0, 16)}...\` — ${tx.value} XDC\n`;
+      });
+      text += `\n`;
+    }
+    
+    text +=
+      `⛽ *${t.cmd_gas_title}*\n` +
+      `Safe: **${gasData.safeGasPrice} Gwei**\n` +
+      `Standard: **${gasData.proposeGasPrice} Gwei**\n` +
+      `Fast: **${gasData.fastGasPrice} Gwei**\n\n` +
+      `All systems operational ✅\n\n` +
+      `💡 *Ready to explore?* Send your wallet address to connect.`;
+
+    return { success: true, text };
   } catch (err) {
-    return formatError('cmdStatus', err);
+    return formatError('cmdStatus', err, lang);
   }
 }
 
-// ─── 13. Help ───────────────────────────────────────────────
+// ─── 14. List Alerts ────────────────────────────────────────
+
+export async function cmdListAlerts(userId: string): Promise<CommandResult> {
+  try {
+    const { listAlerts } = await import('./alert');
+    const alerts = await listAlerts(userId);
+
+    if (alerts.length === 0) {
+      return {
+        success: true,
+        text:
+          '📋 *Your Alerts*\n\n' +
+          'You have no active alerts.\n\n' +
+          'Create one with:\n' +
+          '• \`/alert gas > 50\`\n' +
+          '• \`/alert price < 0.02\`\n' +
+          '• \`Alert me when XDC drops below \$0.02\`',
+      };
+    }
+
+    let text = `📋 *Your Alerts (${alerts.length})*\n\n`;
+    alerts.forEach((alert, i) => {
+      const status = alert.status === 'active' ? '✅' : alert.status === 'paused' ? '⏸️' : '🔔';
+      text += `${i + 1}. ${status} **${alert.name}** (${alert.type})\n`;
+      if (alert.condition.operator && alert.condition.value) {
+        text += `   ${alert.condition.operator} ${alert.condition.value} ${alert.condition.currency || alert.condition.unit || ''}\n`;
+      }
+      text += `   ID: \`${alert._id}\`\n`;
+      text += `   Triggers: ${alert.triggerCount}${alert.maxTriggers ? `/${alert.maxTriggers}` : ''}\n\n`;
+    });
+
+    text += 'To delete: \`/deletealert <id>\`';
+
+    return { success: true, text };
+  } catch (err) {
+    return formatError('cmdListAlerts', err);
+  }
+}
+
+// ─── 15. Create Alert ───────────────────────────────────────
+
+export async function cmdCreateAlert(
+  userId: string,
+  platform: string,
+  chatId: string,
+  args: string[]
+): Promise<CommandResult> {
+  try {
+    // ── Check tier limits ────────────────────────────────────
+    const { canCreateAlert, incrementUsage } = await import('../billing/subscriptionService');
+    const canCreate = await canCreateAlert(userId, platform as any);
+    if (!canCreate) {
+      return {
+        success: false,
+        text:
+          '❌ *Alert Limit Reached*\n\n' +
+          'You have reached the maximum number of alerts for your plan.\n\n' +
+          '💎 Upgrade to Pro for unlimited alerts:\n' +
+          '• /upgrade',
+      };
+    }
+
+    const { createAlert } = await import('./alert');
+
+    // Parse args: /alert gas > 50
+    // or: /alert price < 0.02
+    // or: /alert failed xdc...
+    const type = args[0]?.toLowerCase();
+    const operator = args[1];
+    const value = parseFloat(args[2]);
+    const address = args[2]; // for address-based alerts
+
+    let alertType: string;
+    let condition: any = {};
+    let name: string;
+
+    switch (type) {
+      case 'gas':
+        alertType = 'gas_spike';
+        condition = { operator, value, unit: 'Gwei', network: 'mainnet' };
+        name = `Gas ${operator} ${value} Gwei`;
+        break;
+      case 'price':
+        alertType = 'price_threshold';
+        condition = { operator, value, currency: 'USD', network: 'mainnet' };
+        name = `Price ${operator} $${value}`;
+        break;
+      case 'failed':
+        alertType = 'tx_failed';
+        condition = { address, network: detectNetwork(address) };
+        name = `Failed TX for ${address.slice(0, 10)}...`;
+        break;
+      case 'incoming':
+        alertType = 'tx_incoming';
+        condition = { address, network: detectNetwork(address) };
+        name = `Incoming TX for ${address.slice(0, 10)}...`;
+        break;
+      default:
+        return {
+          success: false,
+          text:
+            '❌ Unknown alert type.\n\n' +
+            'Usage: \`/alert gas > 50\`\n' +
+            'Or: \`Alert me when XDC drops below \$0.02\`',
+        };
+    }
+
+    const alert = await createAlert({
+      userId,
+      platform: platform as any,
+      chatId,
+      type: alertType as any,
+      name,
+      condition,
+      cooldownMinutes: 60,
+    });
+
+    // Track usage
+    await incrementUsage(userId, platform as any, 'alertsCreated');
+
+    return {
+      success: true,
+      text:
+        `🔔 *Alert Created*\n\n` +
+        `Name: **${alert.name}**\n` +
+        `Type: ${alert.type}\n` +
+        `Status: ✅ Active\n\n` +
+        `You'll be notified when the condition is met.`,
+    };
+  } catch (err) {
+    return formatError('cmdCreateAlert', err);
+  }
+}
+
+// ─── 16. Delete Alert ───────────────────────────────────────
+
+export async function cmdDeleteAlert(alertId: string, userId: string): Promise<CommandResult> {
+  try {
+    const { deleteAlert } = await import('./alert');
+    const success = await deleteAlert(alertId, userId);
+
+    if (success) {
+      return {
+        success: true,
+        text: `🗑️ *Alert Deleted*\n\nThe alert has been removed.`,
+      };
+    }
+    return {
+      success: false,
+      text: '⚠️ Alert not found or already deleted.',
+    };
+  } catch (err) {
+    return formatError('cmdDeleteAlert', err);
+  }
+}
+
+export async function cmdSetLanguage(userId: string, lang: string): Promise<CommandResult> {
+  const validLangs = ['en', 'hi', 'mr'];
+  if (!validLangs.includes(lang)) {
+    return {
+      success: false,
+      text: '❌ Invalid language. Use: en, hi, or mr',
+    };
+  }
+
+  try {
+    const { UserModel } = await import('../models/User');
+    await UserModel.updateOne(
+      { telegramId: parseInt(userId) },
+      { preferredLanguage: lang }
+    );
+
+    const messages: Record<string, Record<string, string>> = {
+      en: { en: '✅ Language set to English', hi: '✅ भाषा अंग्रेजी में सेट की गई', mr: '✅ भाषा इंग्रजीमध्ये सेट केली' },
+      hi: { en: '✅ Language set to Hindi', hi: '✅ भाषा हिंदी में सेट की गई', mr: '✅ भाषा हिंदीमध्ये सेट केली' },
+      mr: { en: '✅ Language set to Marathi', hi: '✅ भाषा मराठी में सेट की गई', mr: '✅ भाषा मराठीत सेट केली' },
+    };
+
+    return {
+      success: true,
+      text: messages[lang][lang],
+    };
+  } catch (err) {
+    logger.error('cmdSetLanguage failed', { error: err });
+    return {
+      success: false,
+      text: '❌ Failed to set language. Please try again.',
+    };
+  }
+}
+
+export async function cmdPremium(userId: string): Promise<CommandResult> {
+  try {
+    const { generateUPIPayment } = await import('../payments/upiService');
+    const payment = await generateUPIPayment(99, 'smartai@upi', userId);
+
+    return {
+      success: true,
+      text:
+        `💎 *Premium Plan*\n\n` +
+        `Upgrade to unlock:\n` +
+        `• Unlimited alerts\n` +
+        `• Advanced analytics\n` +
+        `• Priority support\n` +
+        `• Custom notifications\n\n` +
+        `Price: **₹99/month**\n\n` +
+        `Click to pay via UPI:\n` +
+        `[Pay ₹99](${payment.upiLink})\n\n` +
+        `Transaction ID: \`${payment.transactionId}\``,
+    };
+  } catch (err) {
+    logger.error('cmdPremium failed', { error: err });
+    return {
+      success: false,
+      text: '❌ Failed to generate payment. Please try again.',
+    };
+  }
+}
 
 export function cmdHelp(): CommandResult {
   return {
@@ -369,13 +638,18 @@ export function cmdHelp(): CommandResult {
     text:
       `🤖 *Smart AI Explorer* — Text the blockchain!\n\n` +
 
+      `*Alert Commands:*\n` +
+      `• \`/alerts\` — Show your active alerts\n` +
+      `• \`/alert\` — Create a new alert\n` +
+      `• \`/deletealert <id>\` — Delete an alert\n\n` +
+
       `*Wallet Commands:*\n` +
       `• \`/balance xdc...\` — Check XDC balance\n` +
       `• \`/balance txdc...\` — Check testnet balance\n` +
       `• \`/tx xdc...\` — Show last 5 transactions\n` +
       `• \`/activity xdc...\` — Wallet activity stats\n` +
       `• \`/failed xdc...\` — Failed transactions\n` +
-      `• \`/large xdc...\` — Large transfers (\u003e1000 XDC)\n\n` +
+      `• \`/large xdc...\` — Large transfers (>1000 XDC)\n\n` +
 
       `*Tracking Commands:*\n` +
       `• \`/track xdc...\` — Track wallet for alerts\n` +
@@ -383,10 +657,32 @@ export function cmdHelp(): CommandResult {
       `• \`/list\` — Show tracked wallets\n\n` +
 
       `*Network Commands:*\n` +
-      `• \`/gas\` — Current gas prices\n` +
+      `• \`/gas\` — Current gas prices (XDC)\n` +
+      `• \`/gas eth\` — Gas price on any chain\n` +
       `• \`/block 12345\` — Block info\n` +
       `• \`/status\` — Network status\n` +
       `• \`/price\` — XDC price (coming soon)\n\n` +
+
+      `*Multi-Chain Commands:*\n` +
+      `• \`/chains\` — List supported chains\n` +
+      `• \`/balance eth 0x...\` — Balance on any chain\n` +
+      `• \`/tx base 0x...\` — Transactions on any chain\n` +
+      `• \`/gas polygon\` — Gas price on any chain\n\n` +
+
+      `*Billing Commands:*\n` +
+      `• \`/subscription\` — Your current plan\n` +
+      `• \`/upgrade\` — Upgrade to Pro/Enterprise\n` +
+      `• \`/billing\` — Manage subscription\n\n` +
+
+      `*Reputation Commands:*\n` +
+      `• \`/reputation xdc...\` — Check wallet reputation\n` +
+      `• \`/reputation\` — Your reputation (connected wallet)\n` +
+      `• \`/leaderboard\` — Top wallets by reputation\n\n` +
+
+      `*Language Commands:*\n` +
+      `• \`/language en\` — English\n` +
+      `• \`/language hi\` — Hindi\n` +
+      `• \`/language mr\` — Marathi\n\n` +
 
       `*Keyword Shortcuts (no slash):*\n` +
       `• \`b xdc...\` — Same as /balance\n` +
@@ -399,10 +695,93 @@ export function cmdHelp(): CommandResult {
       `• "Balance of xdc..."\n` +
       `• "Show transactions for xdc..."\n` +
       `• "Gas price"\n` +
-      `• "Block 12345"\n\n` +
+      `• "Block 12345"\n` +
+      `• "Alert me when XDC drops below \$0.02"\n\n` +
 
       `*Examples:*\n` +
       `\`/balance xdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020\`\n` +
       `\`/tx txdcA7A0992f35Ef16E9bA2CD73e4fFD31Cef2602020\``,
   };
+}
+
+// ─── Reputation Commands ────────────────────────────────────
+
+export async function cmdReputation(address: string): Promise<CommandResult> {
+  if (!isValidXdcAddress(address)) {
+    return {
+      success: false,
+      text: '❌ Invalid address. Must start with `xdc`, `txdc`, or `0x` (42 chars).',
+    };
+  }
+
+  try {
+    const network = detectNetwork(address);
+    const rep = await getReputation(address, network);
+
+    if (!rep) {
+      return {
+        success: false,
+        text: '❌ Could not calculate reputation. Please try again later.',
+      };
+    }
+
+    const emoji = getTierEmoji(rep.tier);
+    const badges = rep.badges.length > 0
+      ? rep.badges.map((b) => `• ${b.replace(/_/g, ' ').toUpperCase()}`).join('\n')
+      : 'None yet';
+
+    return {
+      success: true,
+      text:
+        `${emoji} *Wallet Reputation*\n\n` +
+        `*Address:* \`${address}\`\n` +
+        `*Score:* ${rep.overallScore}/100\n` +
+        `*Tier:* ${rep.tier}\n\n` +
+        `*Metrics:*\n` +
+        `• Account Age: ${rep.metrics.accountAgeDays} days\n` +
+        `• Transactions: ${rep.metrics.transactionCount}\n` +
+        `• Total Volume: ${rep.metrics.totalVolumeXDC} XDC\n` +
+        `• Avg Tx Value: ${rep.metrics.avgTxValueXDC} XDC\n` +
+        `• Success Rate: ${((1 - rep.metrics.failedTxRatio) * 100).toFixed(1)}%\n` +
+        `• Contracts: ${rep.metrics.contractInteractions}\n` +
+        `• Whale Score: ${rep.metrics.whaleScore}/100\n\n` +
+        `*Badges:*\n${badges}\n\n` +
+        `_Last updated: ${rep.lastUpdated.toLocaleDateString()}_`,
+      rawData: rep,
+    };
+  } catch (err) {
+    return formatError('cmdReputation', err);
+  }
+}
+
+export async function cmdLeaderboard(): Promise<CommandResult> {
+  try {
+    const leaders = await getLeaderboard('mainnet', 10);
+
+    if (leaders.length === 0) {
+      return {
+        success: true,
+        text: '🏆 *Reputation Leaderboard*\n\nNo wallets ranked yet. Be the first!',
+      };
+    }
+
+    const list = leaders
+      .map((w, i) => {
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+        const emoji = getTierEmoji(w.tier);
+        return `${medal} \`${w.address.slice(0, 12)}...\` — ${emoji} ${w.overallScore} pts`;
+      })
+      .join('\n');
+
+    return {
+      success: true,
+      text:
+        `🏆 *Reputation Leaderboard*\n\n` +
+        `${list}\n\n` +
+        `_Total ranked wallets: ${leaders[0]?.totalRanked || 0}_`,
+      rawData: leaders,
+    };
+  } catch (err) {
+    return formatError('cmdLeaderboard', err);
+  }
 }

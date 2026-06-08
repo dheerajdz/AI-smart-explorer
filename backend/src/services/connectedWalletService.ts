@@ -20,7 +20,9 @@ export async function connectWallet(
     return { success: false, message: '❌ Invalid address. Please enter a valid XDC address.' };
   }
 
+  // Use explicitly passed network, or detect from address prefix
   const detectedNetwork = network || detectNetwork(trimmed);
+  logger.info('[ConnectedWalletService] Network selection', { passedNetwork: network, detectedNetwork, address: trimmed });
 
   try {
     // Upsert: disconnect old, connect new
@@ -31,6 +33,7 @@ export async function connectWallet(
         platform,
         address: trimmed,
         network: detectedNetwork,
+        language: 'en',
         isConnected: true,
       }
     );
@@ -51,9 +54,10 @@ export async function disconnectWallet(
   platform: 'telegram' | 'whatsapp' | 'slack' | 'x'
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const result = await ConnectedWalletModel.updateOne(
+    // Use findOneAndUpdate to actually update the document
+    const result = await ConnectedWalletModel.findOneAndUpdate(
       { userId, platform },
-      { isConnected: false }
+      { isConnected: false, updatedAt: new Date() }
     );
 
     if (!result) {
