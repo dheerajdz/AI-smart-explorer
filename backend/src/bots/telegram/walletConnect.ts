@@ -49,6 +49,12 @@ async function showWelcomeNew(ctx: Context): Promise<void> {
     ],
   ]);
 
+  // Set conversation state so text input "mainnet"/"testnet" works too
+  await ConversationStateService.setState({
+    step: 'select_network',
+    telegramId,
+  });
+
   await ctx.reply(text, { parse_mode: 'Markdown', ...keyboard });
 }
 

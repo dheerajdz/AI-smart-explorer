@@ -16,6 +16,7 @@ import {
   cmdLargeTransfers,
   cmdPrice,
   cmdStatus,
+  cmdHelp,
   cmdListAlerts,
   cmdSetLanguage,
   cmdCreateAlert,
@@ -25,7 +26,7 @@ import {
   cmdLeaderboard,
 } from '../../services/blockchainCommands';
 import { getMultiChainBalance, getMultiChainTransactions, getMultiChainGasPrice } from '../../services/multiChain/multiChainService';
-import { getSupportedChains } from '../../config/chains';
+import { getSupportedChains, getChainConfig } from '../../config/chains';
 import { getUserTranslation, setUserLanguage } from '../../services/i18nService';
 
 export async function commandRouter(
@@ -243,7 +244,7 @@ export async function commandRouter(
           parseMode: 'markdown',
         };
       }
-      return { text: (await cmdCreateAlert(userId, platform, chatId, args)).text, parseMode: 'markdown' };
+      return { text: (await cmdCreateAlert(userId, platform, '', args)).text, parseMode: 'markdown' };
     }
 
     case '/deletealert':

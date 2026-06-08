@@ -22,7 +22,7 @@ export interface PortfolioSummary {
  */
 export async function addPortfolioWallet(
   userId: string,
-  platform: string,
+  platform: 'telegram' | 'whatsapp' | 'slack' | 'x',
   address: string,
   network: 'mainnet' | 'testnet',
   label?: string
@@ -53,7 +53,7 @@ export async function addPortfolioWallet(
  */
 export async function removePortfolioWallet(
   userId: string,
-  platform: string,
+  platform: 'telegram' | 'whatsapp' | 'slack' | 'x',
   address: string
 ): Promise<{ success: boolean; message: string }> {
   try {
@@ -73,7 +73,7 @@ export async function removePortfolioWallet(
  */
 export async function getPortfolioSummary(
   userId: string,
-  platform: string
+  platform: 'telegram' | 'whatsapp' | 'slack' | 'x'
 ): Promise<PortfolioSummary> {
   const portfolio = await PortfolioModel.findByUser(userId, platform);
 

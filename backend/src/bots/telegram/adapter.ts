@@ -37,7 +37,7 @@ export async function handleTelegramMessage(ctx: Context): Promise<void> {
   const { ConversationStateService } = await import('../../services/conversation');
   const state = await ConversationStateService.getState(telegramId);
 
-  if (state && state.step !== 'enter_wallet_address') {
+  if (state && state.step !== 'enter_wallet_address' && state.step !== 'select_network') {
     // Let legacy handler process auth flows
     const { handleTextMessage } = await import('./commands');
     await handleTextMessage(ctx);
@@ -48,6 +48,30 @@ export async function handleTelegramMessage(ctx: Context): Promise<void> {
     // Wallet connect address input
     const { handleWalletAddressInput } = await import('./walletConnect');
     await handleWalletAddressInput(ctx);
+    return;
+  }
+
+  // Handle network selection via text (state === 'select_network' or no state but typed mainnet/testnet)
+  const lowerInput = input.toLowerCase();
+  if (['1', 'mainnet', 'xdc mainnet', 'main'].includes(lowerInput)) {
+    const { handleNetworkSelection } = await import('./walletConnect');
+    const mockCtx = {
+      ...ctx,
+      callbackQuery: { data: 'connect_network_mainnet' },
+      answerCbQuery: async () => {},
+    } as any;
+    await handleNetworkSelection(mockCtx);
+    return;
+  }
+
+  if (['2', 'testnet', 'xdc testnet', 'test'].includes(lowerInput)) {
+    const { handleNetworkSelection } = await import('./walletConnect');
+    const mockCtx = {
+      ...ctx,
+      callbackQuery: { data: 'connect_network_testnet' },
+      answerCbQuery: async () => {},
+    } as any;
+    await handleNetworkSelection(mockCtx);
     return;
   }
 

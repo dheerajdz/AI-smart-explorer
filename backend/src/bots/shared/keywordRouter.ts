@@ -163,7 +163,7 @@ export async function keywordRouter(
         parseMode: 'markdown',
       };
     }
-    return { text: cmdTrack(target, userId).text, parseMode: 'markdown' };
+    return { text: (await cmdTrack(target, userId)).text, parseMode: 'markdown' };
   }
 
   // ─── 12. Untrack ────────────────────────────────────────────
