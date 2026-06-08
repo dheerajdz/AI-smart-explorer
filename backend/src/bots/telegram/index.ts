@@ -36,6 +36,7 @@ import {
   handleBillingCheckout,
   handleBillingPortal,
 } from './billingCommands';
+import { portfolioCommand } from './commands/portfolioCommand';
 import { handleTelegramMessage } from './adapter';
 
 export function createBot(): Telegraf {
@@ -46,7 +47,7 @@ export function createBot(): Telegraf {
   bot.command('menu', menuCommand);
   bot.command('logout', logoutCommand);
   bot.command('subscription', subscriptionCommand);
-  bot.command('upgrade', upgradeCommand);
+  bot.command('portfolio', portfolioCommand);
 
   /* -------------------- Billing Callbacks -------------------- */
   bot.action('billing_upgrade', upgradeCommand);
