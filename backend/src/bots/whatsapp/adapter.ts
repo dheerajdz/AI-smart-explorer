@@ -136,6 +136,93 @@ export async function handleWhatsAppMessage(fromNumber: string, text: string): P
       
       return message;
     }
+
+    // Reputation command
+    if (lowerInput.startsWith('reputation') || lowerInput.startsWith('/reputation')) {
+      const parts = input.split(/\s+/);
+      let address = parts[1] || '';
+      
+      // If no address provided, use connected wallet
+      if (!address) {
+        address = wallet.address;
+      }
+      
+      if (!address) {
+        return '💎 *Reputation Check*\n\nUsage: `reputation <address>`\n\nOr connect a wallet first.';
+      }
+      
+      const { getReputation } = await import('../../services/reputation/reputationService');
+      const reputation = await getReputation(address);
+      
+      if (!reputation) {
+        return '💎 *Reputation*\n\n' +
+          `Address: \`${address}\`\n\n` +
+          'No reputation data found.\n' +
+          'This wallet has not been analyzed yet.';
+      }
+      
+      const tierEmoji = reputation.overallScore >= 90 ? '👑' : 
+                        reputation.overallScore >= 80 ? '🥇' :
+                        reputation.overallScore >= 70 ? '🥈' :
+                        reputation.overallScore >= 60 ? '🥉' : '📊';
+      
+      let message = '';
+      message += `💎 *Wallet Reputation*\n\n`;
+      message += `Address: \`${address}\`\n`;
+      message += `Score: *${reputation.overallScore}/100* ${tierEmoji}\n`;
+      message += `Tier: *${reputation.tier}*\n\n`;
+      
+      message += '📊 *Metrics*\n';
+      message += `• Transaction Count: ${reputation.metrics.transactionCount}\n`;
+      message += `• Account Age: ${reputation.metrics.accountAgeDays} days\n`;
+      message += `• Avg Tx Value: ${reputation.metrics.avgTxValueXDC} XDC\n`;
+      message += `• Contract Interactions: ${reputation.metrics.contractInteractions}\n\n`;
+      
+      if (reputation.badges && reputation.badges.length > 0) {
+        message += '🏅 *Badges*\n';
+        reputation.badges.forEach((badge: string) => {
+          const emoji = badge === 'whale' ? '🐋' :
+                       badge === 'early_adopter' ? '🚀' :
+                       badge === 'power_user' ? '⚡' :
+                       badge === 'contract_deployer' ? '📜' :
+                       badge === 'validator' ? '✅' : '🌟';
+          message += `${emoji} ${badge.replace('_', ' ')}\n`;
+        });
+        message += '\n';
+      }
+      
+      message += `_💡 Tip: Use "leaderboard" to see top wallets_`;
+      
+      return message;
+    }
+
+    // Leaderboard command
+    if (lowerInput === 'leaderboard' || lowerInput === '/leaderboard') {
+      const { getLeaderboard } = await import('../../services/reputation/reputationService');
+      const leaderboard = await getLeaderboard('mainnet', 10);
+      
+      if (!leaderboard || leaderboard.length === 0) {
+        return '🏆 *Leaderboard*\n\nNo wallets ranked yet.\nBe the first to build your reputation!';
+      }
+      
+      let message = '';
+      message += '🏆 *Reputation Leaderboard*\n\n';
+      message += 'Top 10 Wallets by Reputation Score\n\n';
+      
+      leaderboard.forEach((entry: any, index: number) => {
+        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+        const addr = `${entry.address.slice(0, 6)}...${entry.address.slice(-4)}`;
+        message += `${medal} \`${addr}\` — *${entry.overallScore}* pts\n`;
+      });
+      
+      message += '\n💎 *How to improve:*\n';
+      message += '• Make more transactions\n';
+      message += '• Interact with contracts\n';
+      message += '• Hold tokens long-term\n\n';
+      message += `_Check your score: reputation <address>_`;
+      
+      return message;
+    }
   }
 
   // Handle gas command (without wallet)
@@ -165,8 +252,10 @@ export async function handleWhatsAppMessage(fromNumber: string, text: string): P
       `• gas - Current gas prices\n` +
       `• status - Network status\n` +
       `• block <number> - Block info\n\n` +
-      `*Portfolio:*\n` +
-      `• portfolio - View your portfolio\n\n` +
+      `*Portfolio & Reputation:*\n` +
+      `• portfolio - View your portfolio\n` +
+      `• reputation <address> - Check wallet reputation\n` +
+      `• leaderboard - Top wallets by reputation\n\n` +
       `*Other:*\n` +
       `• /subscription - Your subscription\n` +
       `• /upgrade - Upgrade plan\n` +
