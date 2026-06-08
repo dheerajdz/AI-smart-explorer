@@ -26,20 +26,7 @@ export async function handleWhatsAppMessage(fromNumber: string, text: string): P
   // Handle network selection via text
   const lowerInput = input.toLowerCase();
 
-  if (state?.step === 'select_network' || isFirstInteraction) {
-    if (['1', 'mainnet', 'xdc mainnet', 'main'].includes(lowerInput)) {
-      return handleNetworkSelection(userId, 'mainnet');
-    }
-    if (['2', 'testnet', 'xdc testnet', 'test'].includes(lowerInput)) {
-      return handleNetworkSelection(userId, 'testnet');
-    }
-  }
-
-  if (state?.step === 'enter_wallet_address') {
-    return handleWalletAddressInput(userId, input, state.network || 'mainnet');
-  }
-
-  // Handle greetings
+  // Handle greetings FIRST (before network selection check)
   if (isGreeting(lowerInput)) {
     const { generateWelcome } = await import('../shared/welcome');
     const welcome = await generateWelcome('whatsapp', userId);
@@ -53,6 +40,19 @@ export async function handleWhatsAppMessage(fromNumber: string, text: string): P
     }
 
     return welcome.text;
+  }
+
+  if (state?.step === 'select_network' || isFirstInteraction) {
+    if (['1', 'mainnet', 'xdc mainnet', 'main'].includes(lowerInput)) {
+      return handleNetworkSelection(userId, 'mainnet');
+    }
+    if (['2', 'testnet', 'xdc testnet', 'test'].includes(lowerInput)) {
+      return handleNetworkSelection(userId, 'testnet');
+    }
+  }
+
+  if (state?.step === 'enter_wallet_address') {
+    return handleWalletAddressInput(userId, input, state.network || 'mainnet');
   }
 
   // Handle menu numbers (1-6) for connected wallets
@@ -299,9 +299,13 @@ function isGreeting(text: string): boolean {
   return (
     lower === 'hi' ||
     lower === 'hii' ||
+    lower === 'hiii' ||
     lower === 'hello' ||
     lower === 'hey' ||
     lower === 'start' ||
-    lower === 'welcome'
+    lower === 'welcome' ||
+    /^hi+$/i.test(lower) || // Matches hi, hii, hiii, etc.
+    /^he+y+$/i.test(lower) || // Matches hey, heyy, etc.
+    /^hello+$/i.test(lower) // Matches hello, helloo, etc.
   );
 }
