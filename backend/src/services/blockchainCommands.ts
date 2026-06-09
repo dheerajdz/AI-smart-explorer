@@ -499,7 +499,8 @@ export async function cmdCreateAlert(
     const operator = args[1];
     const rawValue = args[2];
     const value = parseFloat(rawValue);
-    const address = rawValue;
+    // For failed/incoming alerts, address is at args[1]; for gas/price, it's at args[2]
+    const address = (type === 'failed' || type === 'incoming') ? args[1] : rawValue;
 
     // ── Validate alert type ────────────────────────────────────
     const validTypes = ['gas', 'price', 'failed', 'incoming'];
