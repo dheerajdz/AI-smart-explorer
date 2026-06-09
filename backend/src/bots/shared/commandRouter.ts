@@ -249,7 +249,12 @@ export async function commandRouter(
           parseMode: 'markdown',
         };
       }
-      return { text: (await cmdCreateAlert(userId, platform, '', args)).text, parseMode: 'markdown' };
+      // Map symbolic operators to schema enum values
+      const mappedArgs = [...args];
+      if (mappedArgs[1] === '>') mappedArgs[1] = 'above';
+      if (mappedArgs[1] === '<') mappedArgs[1] = 'below';
+      if (mappedArgs[1] === '=') mappedArgs[1] = 'equals';
+      return { text: (await cmdCreateAlert(userId, platform, userId, mappedArgs)).text, parseMode: 'markdown' };
     }
 
     case '/deletealert':
