@@ -2,7 +2,7 @@ import axios from 'axios';
 import { logger } from '../../utils/logger';
 import { env } from '../../config/env';
 import { RESPONSE_FORMATTER_PROMPT } from './promptTemplates';
-import { QueryAction } from '../../types';
+import { QueryAction } from '../../types/query';
 
 // ─── Config ─────────────────────────────────────────────────
 

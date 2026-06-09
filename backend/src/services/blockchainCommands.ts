@@ -19,7 +19,7 @@ import {
 } from './blockchain';
 import * as walletService from './walletService';
 import { getReputation, getLeaderboard, getTier, getTierEmoji } from './reputation/reputationService';
-import { getTranslationByLang, TranslationKeys } from '../services/i18nService';
+import { getTranslationByLang } from '../services/i18nService';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -122,7 +122,7 @@ export async function cmdTrack(address: string, userId: string, platform?: strin
 
   // ── Check tier limits ────────────────────────────────────
   if (platform) {
-    const { canAddPortfolioWallet, incrementUsage } = await import('../billing/subscriptionService');
+    const { canAddPortfolioWallet, incrementUsage } = await import('./billing/subscriptionService');
     const wallets = walletService.listWallets(userId);
     const canAdd = await canAddPortfolioWallet(userId, platform as any, wallets.length);
     if (!canAdd) {
@@ -148,6 +148,17 @@ export async function cmdTrack(address: string, userId: string, platform?: strin
     };
   }
 
+  // Also save to MongoDB portfolio collection so /portfolio can find it
+  if (platform) {
+    try {
+      const { addPortfolioWallet } = await import('./portfolioService');
+      await addPortfolioWallet(userId, platform as any, address, network);
+    } catch (err) {
+      logger.error('[cmdTrack] Failed to add to portfolio DB', { error: err });
+      // Don't fail the whole command if portfolio DB save fails
+    }
+  }
+
   return {
     success: true,
     text:
@@ -160,7 +171,7 @@ export async function cmdTrack(address: string, userId: string, platform?: strin
 
 // ─── 4. Untrack Wallet ──────────────────────────────────────
 
-export function cmdUntrack(address: string, userId: string): CommandResult {
+export function cmdUntrack(address: string, userId: string, platform?: string): CommandResult {
   const result = walletService.untrackWallet(address, userId);
 
   if (!result.success) {
@@ -168,6 +179,15 @@ export function cmdUntrack(address: string, userId: string): CommandResult {
       success: false,
       text: '❌ Wallet not found in your tracked list.',
     };
+  }
+
+  // Also remove from MongoDB portfolio collection
+  if (platform) {
+    import('./portfolioService').then(({ removePortfolioWallet }) => {
+      removePortfolioWallet(userId, platform as any, address).catch((err: any) => {
+        logger.error('[cmdUntrack] Failed to remove from portfolio DB', { error: err });
+      });
+    });
   }
 
   return {
@@ -462,7 +482,7 @@ export async function cmdCreateAlert(
 ): Promise<CommandResult> {
   try {
     // ── Check tier limits ────────────────────────────────────
-    const { canCreateAlert, incrementUsage } = await import('../billing/subscriptionService');
+    const { canCreateAlert, incrementUsage } = await import('./billing/subscriptionService');
     const canCreate = await canCreateAlert(userId, platform as any);
     if (!canCreate) {
       return {
@@ -547,6 +567,33 @@ export async function cmdCreateAlert(
   }
 }
 
+export async function cmdPauseAllAlerts(userId: string): Promise<CommandResult> {
+  try {
+    const { pauseAllAlerts } = await import('./alert');
+    const count = await pauseAllAlerts(userId);
+
+    if (count === 0) {
+      return {
+        success: true,
+        text: 'ℹ️ You have no active alerts to stop.',
+      };
+    }
+
+    return {
+      success: true,
+      text:
+        `🔕 *Alerts Paused*
+
+` +
+        `Stopped ${count} active alert${count === 1 ? '' : 's'}.
+` +
+        `Use /alerts to review your paused alerts or /deletealert <id> to remove them permanently.`,
+    };
+  } catch (err) {
+    return formatError('cmdPauseAllAlerts', err);
+  }
+}
+
 // ─── 16. Delete Alert ───────────────────────────────────────
 
 export async function cmdDeleteAlert(alertId: string, userId: string): Promise<CommandResult> {
@@ -582,7 +629,7 @@ export async function cmdSetLanguage(userId: string, lang: string): Promise<Comm
     const { UserModel } = await import('../models/User');
     await UserModel.updateOne(
       { telegramId: parseInt(userId) },
-      { preferredLanguage: lang }
+      { preferredLanguage: lang as 'en' | 'hi' | 'mr' }
     );
 
     const messages: Record<string, Record<string, string>> = {
@@ -606,7 +653,7 @@ export async function cmdSetLanguage(userId: string, lang: string): Promise<Comm
 
 export async function cmdPremium(userId: string): Promise<CommandResult> {
   try {
-    const { generateUPIPayment } = await import('../payments/upiService');
+    const { generateUPIPayment } = await import('./payments/upiService');
     const payment = await generateUPIPayment(99, 'smartai@upi', userId);
 
     return {

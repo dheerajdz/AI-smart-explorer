@@ -102,7 +102,7 @@ export async function handleWhatsAppMessage(fromNumber: string, text: string): P
     // Menu option 5: Track
     if (lowerInput === '5' || lowerInput === 'track' || lowerInput.includes('track')) {
       const { cmdTrack } = await import('../../services/blockchainCommands');
-      const result = await cmdTrack(wallet.address, userId);
+      const result = await cmdTrack(wallet.address, userId, 'whatsapp');
       return result.text;
     }
 
@@ -248,7 +248,7 @@ export async function handleWhatsAppMessage(fromNumber: string, text: string): P
       }
       
       const { cmdUntrack } = await import('../../services/blockchainCommands');
-      const result = cmdUntrack(address, userId);
+      const result = cmdUntrack(address, userId, 'whatsapp');
       return result.text;
     }
 

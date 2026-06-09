@@ -28,6 +28,9 @@ const envSchema = z.object({
   STRIPE_PRO_PRICE_ID: z.string().optional(),
   STRIPE_ENTERPRISE_PRICE_ID: z.string().optional(),
   
+  // ── Frontend ────────────────────────────────────────────────
+  FRONTEND_URL: z.string().url().optional().default('http://localhost:3000'),
+  
   // ── Blockchain APIs ─────────────────────────────────────────
   XDCSCAN_API: z.string().url().optional().default('https://api.xdcscan.io/api'),
   XDCSCAN_TESTNET_API: z.string().url().optional().default('https://erpc.apothem.network'),

@@ -18,6 +18,7 @@ import {
   cmdStatus,
   cmdHelp,
   cmdListAlerts,
+  cmdPauseAllAlerts,
   cmdSetLanguage,
   cmdCreateAlert,
   cmdDeleteAlert,
@@ -185,13 +186,17 @@ export async function commandRouter(
         input: address,
         metadata: { address },
       });
-      return { text: cmdUntrack(address, userId).text, parseMode: 'markdown' };
+      return { text: (await cmdUntrack(address, userId)).text, parseMode: 'markdown' };
 
     case '/list':
       return { text: cmdList(userId).text, parseMode: 'markdown' };
 
     case '/alerts':
       return { text: (await cmdListAlerts(userId)).text, parseMode: 'markdown' };
+
+    case '/stopalerts':
+    case '/pausealerts':
+      return { text: (await cmdPauseAllAlerts(userId)).text, parseMode: 'markdown' };
 
     case '/premium':
       return { text: (await cmdPremium(userId)).text, parseMode: 'markdown' };
@@ -266,6 +271,7 @@ export async function commandRouter(
         parseMode: 'markdown',
       };
 
+    case '/rep':
     case '/reputation': {
       const addr = address || (await getConnectedAddress(platform, userId));
       if (!addr) return { text: 'Usage: /reputation <address>\n\nOr connect a wallet first.' };

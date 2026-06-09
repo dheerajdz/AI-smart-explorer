@@ -28,11 +28,11 @@ export async function createAlert(input: CreateAlertInput): Promise<IAlert> {
 }
 
 export async function listAlerts(userId: string): Promise<IAlert[]> {
-  return AlertModel.find({ userId }).sort({ createdAt: -1 }).lean();
+  return AlertModel.find({ userId }).sort({ createdAt: -1 }).lean() as unknown as Promise<IAlert[]>;
 }
 
 export async function getAlertById(alertId: string, userId: string): Promise<IAlert | null> {
-  return AlertModel.findOne({ _id: alertId, userId }).lean();
+  return AlertModel.findOne({ _id: alertId, userId }).lean() as unknown as Promise<IAlert | null>;
 }
 
 export async function deleteAlert(alertId: string, userId: string): Promise<boolean> {
@@ -46,6 +46,15 @@ export async function pauseAlert(alertId: string, userId: string): Promise<boole
     { $set: { status: 'paused', isActive: false } }
   );
   return result.modifiedCount > 0;
+}
+
+export async function pauseAllAlerts(userId: string): Promise<number> {
+  const result = await AlertModel.updateMany(
+    { userId, status: 'active', isActive: true },
+    { $set: { status: 'paused', isActive: false } }
+  );
+  logger.info('[alertService] Paused all alerts', { userId, modifiedCount: result.modifiedCount });
+  return result.modifiedCount || 0;
 }
 
 export async function resumeAlert(alertId: string, userId: string): Promise<boolean> {

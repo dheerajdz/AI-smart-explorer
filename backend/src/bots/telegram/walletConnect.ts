@@ -274,7 +274,7 @@ export async function handleMenuTrack(ctx: Context): Promise<void> {
     : wallet.address;
 
   const { cmdTrack } = await import('../../services/blockchainCommands');
-  const result = cmdTrack(address, String(telegramId));
+  const result = await cmdTrack(address, String(telegramId));
   await ctx.reply(result.text, { parse_mode: 'Markdown' });
   await ctx.answerCbQuery();
 }

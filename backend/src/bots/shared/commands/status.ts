@@ -1,7 +1,7 @@
 import { redis } from '../../../database';
-import { CommandResult } from '../types';
+import { BotResponse } from '../types';
 
-export async function getStatusText(): Promise<CommandResult> {
+export async function getStatusText(): Promise<BotResponse> {
   let redisStatus = 'Disconnected';
   try {
     await redis.ping();

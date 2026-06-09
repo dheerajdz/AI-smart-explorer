@@ -248,7 +248,7 @@ export async function keywordRouter(
     // ─── 16. Subscription / Billing ───────────────────────────────
     if (lower.includes('subscription') || lower.includes('my plan') || lower.includes('current plan') || lower.includes('tier')) {
       const { getOrCreateSubscription } = await import('./billing/subscriptionService');
-      const sub = await getOrCreateSubscription(userId);
+      const sub = await getOrCreateSubscription(userId, 'whatsapp', userId);
       const tier = sub.tier;
       const expires = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString() : 'N/A';
       
@@ -265,19 +265,19 @@ export async function keywordRouter(
     }
 
     if (lower.includes('upgrade') || lower.includes('go pro') || lower.includes('billing') || lower.includes('payment')) {
-      const { createCheckoutSession } = await import('./billing/subscriptionService');
+      const { createCheckoutSession } = await import('./billing/stripeService');
       
       // Determine which tier
       const isEnterprise = lower.includes('enterprise') || lower.includes('business');
       const tier = isEnterprise ? 'enterprise' : 'pro';
       
       try {
-        const session = await createCheckoutSession(userId, tier as any);
+        const sessionUrl = await createCheckoutSession(userId, tier as any, {});
         return {
           text:
             `💳 *Upgrade to ${tier.toUpperCase()}*\n\n` +
             `Click below to complete payment:\n\n` +
-            `${session.url}`,
+            `${sessionUrl || 'Payment link unavailable'}`,
         };
       } catch (err) {
         return {
@@ -291,13 +291,13 @@ export async function keywordRouter(
     // ─── 17. Portfolio ────────────────────────────────────────────
     if (lower.includes('portfolio') || lower.includes('my wallets') || lower.includes('all wallets') || lower.includes('net worth')) {
       const { getPortfolioSummary } = await import('./portfolioService');
-      const summary = await getPortfolioSummary(userId);
+      const summary = await getPortfolioSummary(userId, 'whatsapp');
       return {
         text:
           `📊 *Portfolio Summary*\n\n` +
-          `*Wallets:* ${summary.walletCount}\n` +
+          `*Wallets:* ${summary.totalWallets}\n` +
           `*Total Balance:* ${summary.totalBalanceXDC} XDC\n` +
-          `*Total Value:* $${summary.totalValueUSD}\n\n` +
+          `*Total Value:* $${summary.totalBalanceUSD}\n\n` +
           (summary.wallets.length > 0
             ? summary.wallets.map((w: any) => `• \`${w.address.slice(0, 12)}...\` — ${w.balanceXDC} XDC`).join('\n')
             : 'No wallets connected.'),

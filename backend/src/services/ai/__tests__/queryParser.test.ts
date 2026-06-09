@@ -4,23 +4,23 @@
 // Mocks askKimi to test parsing logic in isolation.
 // ============================================================
 
-import { QueryAction } from '../../types';
+import { QueryAction } from '../../../types/query';
 import { parseQuery, ParsedQuery } from '../queryParser';
 
-// ─── Mock Kimi so we don't hit the real API ─────────────────
-jest.mock('../kimiService', () => ({
-  askKimi: jest.fn(),
+// ─── Mock Groq so we don't hit the real API ─────────────────
+jest.mock('../groqService', () => ({
+  askGroq: jest.fn(),
 }));
 
-import { askKimi } from '../kimiService';
+import { askGroq } from '../groqService';
 
 // ─── Helpers ────────────────────────────────────────────────
 
 /**
  * Helper to mock a Kimi response for a single test.
  */
-function mockKimiReturns(jsonString: string) {
-  (askKimi as jest.Mock).mockResolvedValue(jsonString);
+function mockGroqReturns(jsonString: string) {
+  (askGroq as jest.Mock).mockResolvedValue(jsonString);
 }
 
 // ─── Tests ──────────────────────────────────────────────────

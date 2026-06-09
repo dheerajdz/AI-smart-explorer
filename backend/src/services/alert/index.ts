@@ -4,6 +4,7 @@ export {
   getAlertById,
   deleteAlert,
   pauseAlert,
+  pauseAllAlerts,
   resumeAlert,
   getActiveAlerts,
   markAlertTriggered,

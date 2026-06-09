@@ -1,6 +1,7 @@
 import { PortfolioModel, IPortfolioWallet } from '../models/Portfolio';
 import { getWalletBalance, getTransactions } from './blockchain';
 import { logger } from '../utils/logger';
+import * as walletService from './walletService';
 
 export interface PortfolioSummary {
   totalWallets: number;
@@ -75,7 +76,28 @@ export async function getPortfolioSummary(
   userId: string,
   platform: 'telegram' | 'whatsapp' | 'slack' | 'x'
 ): Promise<PortfolioSummary> {
-  const portfolio = await PortfolioModel.findByUser(userId, platform);
+  let portfolio = await PortfolioModel.findByUser(userId, platform);
+
+  // Fallback: check in-memory tracked wallets and sync to MongoDB
+  if (!portfolio || portfolio.wallets.length === 0) {
+    const inMemoryWallets = walletService.listWallets(userId);
+    if (inMemoryWallets.length > 0) {
+      // Sync in-memory wallets to MongoDB
+      for (const w of inMemoryWallets) {
+        try {
+          await PortfolioModel.addWallet(userId, platform, {
+            address: w.address,
+            network: w.network,
+            addedAt: new Date(),
+          });
+        } catch (err) {
+          // Wallet may already exist, ignore error
+        }
+      }
+      // Re-fetch after sync
+      portfolio = await PortfolioModel.findByUser(userId, platform);
+    }
+  }
 
   if (!portfolio || portfolio.wallets.length === 0) {
     return {

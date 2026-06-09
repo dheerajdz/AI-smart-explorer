@@ -8,10 +8,10 @@
 import { logger } from '../../utils/logger';
 import { askGroq } from './groqService';
 import { QUERY_PARSER_PROMPT } from './promptTemplates';
-import { QueryAction, VALID_QUERY_ACTIONS, ParsedQuery } from '../../types';
+import { QueryAction, VALID_QUERY_ACTIONS, ParsedQuery } from '../../types/query';
 
 // Re-export for consumers that only import from services/ai
-export { QueryAction, ParsedQuery } from '../../types';
+export { QueryAction, ParsedQuery } from '../../types/query';
 
 // ─── Public API ─────────────────────────────────────────────
 

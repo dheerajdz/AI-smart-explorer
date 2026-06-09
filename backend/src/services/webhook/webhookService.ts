@@ -203,7 +203,7 @@ async function handleBalanceChangeWebhook(payload: WebhookPayload): Promise<void
   });
 
   for (const alert of alerts) {
-    const previousBalance = alert.condition.previousBalance || 0;
+    const previousBalance = (alert.condition as any).previousBalance || 0;
     const change = (value || 0) - previousBalance;
 
     if (Math.abs(change) > 0.0001) {
@@ -215,7 +215,7 @@ async function handleBalanceChangeWebhook(payload: WebhookPayload): Promise<void
         network,
       });
 
-      alert.condition.previousBalance = value;
+      (alert.condition as any).previousBalance = value;
       alert.lastTriggered = new Date();
       alert.triggerCount += 1;
       await alert.save();

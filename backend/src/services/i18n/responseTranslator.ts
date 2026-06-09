@@ -34,7 +34,9 @@ export async function translateResponse(
     // Cache result
     if (translationCache.size >= CACHE_MAX_SIZE) {
       const firstKey = translationCache.keys().next().value;
-      translationCache.delete(firstKey);
+      if (firstKey) {
+        translationCache.delete(firstKey);
+      }
     }
     translationCache.set(cacheKey, translated);
 

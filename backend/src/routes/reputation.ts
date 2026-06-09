@@ -10,8 +10,9 @@ const router = Router();
  * Get reputation score for a wallet address
  */
 router.get('/:address', async (req: Request, res: Response) => {
-  const { address } = req.params;
-  const network = (req.query.network as 'mainnet' | 'testnet') || 'mainnet';
+  const address = String(req.params.address);
+  const networkRaw = Array.isArray(req.query.network) ? req.query.network[0] : (req.query.network as string) || 'mainnet';
+  const network = String(networkRaw);
 
   if (!isValidXdcAddress(address)) {
     return res.status(400).json({
@@ -21,7 +22,7 @@ router.get('/:address', async (req: Request, res: Response) => {
   }
 
   try {
-    const reputation = await getReputation(address, network);
+    const reputation = await getReputation(address, network as 'mainnet' | 'testnet');
 
     if (!reputation) {
       return res.status(404).json({
