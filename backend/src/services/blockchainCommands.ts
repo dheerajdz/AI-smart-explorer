@@ -481,8 +481,72 @@ export async function cmdCreateAlert(
   args: string[]
 ): Promise<CommandResult> {
   try {
-    // ── Check tier limits ────────────────────────────────────
-    const { canCreateAlert, incrementUsage } = await import('./billing/subscriptionService');
+    // ── Validate args ──────────────────────────────────────────
+    if (!args || args.length === 0) {
+      return {
+        success: false,
+        text:
+          '🔔 *Create Alert*\n\n' +
+          'Usage examples:\n' +
+          '• \`/alert gas > 50\` — Gas price alert\n' +
+          '• \`/alert price < 0.02\` — Price alert\n' +
+          '• \`/alert failed xdc...\` — Failed tx alert\n' +
+          '• \`/alert incoming xdc...\` — Incoming tx alert',
+      };
+    }
+
+    const type = args[0]?.toLowerCase();
+    const operator = args[1];
+    const rawValue = args[2];
+    const value = parseFloat(rawValue);
+    const address = rawValue;
+
+    // ── Validate alert type ────────────────────────────────────
+    const validTypes = ['gas', 'price', 'failed', 'incoming'];
+    if (!validTypes.includes(type)) {
+      return {
+        success: false,
+        text:
+          '❌ Unknown alert type: `' + type + '`\n\n' +
+          'Valid types: gas, price, failed, incoming\n\n' +
+          'Examples:\n' +
+          '• \`/alert gas > 50\`\n' +
+          '• \`/alert price < 0.02\`',
+      };
+    }
+
+    // ── Validate numeric alerts have required args ─────────────
+    if ((type === 'gas' || type === 'price') && (!operator || isNaN(value))) {
+      return {
+        success: false,
+        text:
+          '❌ Invalid alert format.\n\n' +
+          'Usage: \`/alert ' + type + ' <operator> <value>\`\n' +
+          'Example: \`/alert ' + type + ' > 50\`',
+      };
+    }
+
+    // ── Validate address-based alerts have address ─────────────
+    if ((type === 'failed' || type === 'incoming') && !address) {
+      return {
+        success: false,
+        text:
+          '❌ Address required.\n\n' +
+          'Usage: \`/alert ' + type + ' <address>\`\n' +
+          'Example: \`/alert ' + type + ' xdc84E1...\`',
+      };
+    }
+
+    // ── Validate address format for address-based alerts ───────
+    if ((type === 'failed' || type === 'incoming') && !isValidXdcAddress(address)) {
+      return {
+        success: false,
+        text: '❌ Invalid XDC address: `' + address + '`\n\nPlease provide a valid address.',
+      };
+    }
+
+    // ── Check tier limits ──────────────────────────────────────
+    const { canCreateAlert } = await import('./billing/subscriptionService');
     const canCreate = await canCreateAlert(userId, platform as any);
     if (!canCreate) {
       return {
@@ -496,14 +560,6 @@ export async function cmdCreateAlert(
     }
 
     const { createAlert } = await import('./alert');
-
-    // Parse args: /alert gas > 50
-    // or: /alert price < 0.02
-    // or: /alert failed xdc...
-    const type = args[0]?.toLowerCase();
-    const operator = args[1];
-    const value = parseFloat(args[2]);
-    const address = args[2]; // for address-based alerts
 
     let alertType: string;
     let condition: any = {};
@@ -550,8 +606,13 @@ export async function cmdCreateAlert(
       cooldownMinutes: 60,
     });
 
-    // Track usage
-    await incrementUsage(userId, platform as any, 'alertsCreated');
+    // Track usage (best effort — don't fail if this errors)
+    try {
+      const { incrementUsage } = await import('./billing/subscriptionService');
+      await incrementUsage(userId, platform as any, 'alertsCreated');
+    } catch (usageErr) {
+      logger.warn('[cmdCreateAlert] Failed to track usage', { error: usageErr });
+    }
 
     return {
       success: true,
@@ -562,7 +623,15 @@ export async function cmdCreateAlert(
         `Status: ✅ Active\n\n` +
         `You'll be notified when the condition is met.`,
     };
-  } catch (err) {
+  } catch (err: any) {
+    // Return specific error message for validation errors
+    if (err?.name === 'ValidationError' && err?.message) {
+      logger.error('[blockchainCommands] cmdCreateAlert validation failed', { error: err.message });
+      return {
+        success: false,
+        text: '❌ *Alert Creation Failed*\n\n' + err.message,
+      };
+    }
     return formatError('cmdCreateAlert', err);
   }
 }
