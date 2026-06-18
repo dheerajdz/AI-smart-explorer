@@ -9,6 +9,6 @@ export {
 export { parseQuery } from './queryParser';
 export { executeQuery } from './queryRouter';
 export type { QueryResult } from './queryRouter';
-export type { ParsedQuery } from '../../types';
-export { QueryAction } from '../../types';
+export type { ParsedQuery } from '../../types/query';
+export { QueryAction } from '../../types/query';
 export { detectNetwork, isValidXdcAddress, getTxExplorerUrl, getAddressExplorerUrl } from '../../utils/network';

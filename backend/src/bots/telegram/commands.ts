@@ -332,6 +332,32 @@ export async function handleTextMessage(ctx: Context): Promise<void> {
       await handleWalletAddressInput(ctx);
       return;
 
+    case 'select_network':
+      // Network selection via text
+      const lowerInput = input.toLowerCase();
+      if (['1', 'mainnet', 'xdc mainnet', 'main'].includes(lowerInput)) {
+        const { handleNetworkSelection } = await import('./walletConnect');
+        const mockCtx = {
+          ...ctx,
+          callbackQuery: { data: 'connect_network_mainnet' },
+          answerCbQuery: async () => {},
+        } as any;
+        await handleNetworkSelection(mockCtx);
+        return;
+      }
+      if (['2', 'testnet', 'xdc testnet', 'test'].includes(lowerInput)) {
+        const { handleNetworkSelection } = await import('./walletConnect');
+        const mockCtx = {
+          ...ctx,
+          callbackQuery: { data: 'connect_network_testnet' },
+          answerCbQuery: async () => {},
+        } as any;
+        await handleNetworkSelection(mockCtx);
+        return;
+      }
+      await ctx.reply('❌ Please select a valid network: type "1" for Mainnet or "2" for Testnet.');
+      return;
+
     default:
       await ctx.reply('Please use /start to begin.');
   }
@@ -477,6 +503,7 @@ async function processSignupWallet(ctx: Context, telegramId: number, walletAddre
       walletAddress: walletAddress.trim().toLowerCase(),
       plan: 'free',
       isEmailVerified: true,
+      preferredLanguage: 'en',
     });
 
     await ConversationStateService.clearState(telegramId);
@@ -602,7 +629,7 @@ export async function trackCommand(ctx: Context): Promise<void> {
     return;
   }
 
-  const result = cmdTrack(address, String(telegramId));
+  const result = await cmdTrack(address, String(telegramId), 'telegram');
   await ctx.reply(result.text, { parse_mode: 'Markdown' });
 }
 
@@ -617,7 +644,7 @@ export async function untrackCommand(ctx: Context): Promise<void> {
     return;
   }
 
-  const result = cmdUntrack(address, String(telegramId));
+  const result = cmdUntrack(address, String(telegramId), 'telegram');
   await ctx.reply(result.text, { parse_mode: 'Markdown' });
 }
 
@@ -750,11 +777,11 @@ async function handleKeywordShortcut(
 
     case 'track':
       if (!address) return null;
-      return cmdTrack(address, userId).text;
+      return (await cmdTrack(address, userId)).text;
 
     case 'untrack':
       if (!address) return null;
-      return cmdUntrack(address, userId).text;
+      return (await cmdUntrack(address, userId)).text;
 
     case 'list':
       return cmdList(userId).text;

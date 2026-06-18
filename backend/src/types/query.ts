@@ -29,6 +29,7 @@ export enum QueryAction {
   CONTRACT_DEPLOYER = 'contract_deployer',
   CONTRACT_VERIFICATION = 'contract_verification',
   FAILED_CONTRACT_DEPLOYMENTS = 'failed_contract_deployments',
+  DEPLOYS = 'deploys',  // alias
 
   // ── Network & Gas ────────────────────────────────────────
   GAS_PRICE = 'gas_price',
@@ -39,6 +40,7 @@ export enum QueryAction {
   CREATE_ALERT = 'create_alert',
   LIST_ALERTS = 'list_alerts',
   DELETE_ALERT = 'delete_alert',
+  PAUSE_ALL_ALERTS = 'pause_all_alerts',
 
   // ── Portfolio ──────────────────────────────────────────────
   PORTFOLIO_SUMMARY = 'portfolio_summary',
@@ -113,6 +115,7 @@ export const QUERY_ACTION_DESCRIPTIONS: Record<QueryAction, string> = {
   [QueryAction.CONTRACT_DEPLOYER]: 'Find who deployed a contract',
   [QueryAction.CONTRACT_VERIFICATION]: 'Check if a contract is verified',
   [QueryAction.FAILED_CONTRACT_DEPLOYMENTS]: 'Find failed contract deployments',
+  [QueryAction.DEPLOYS]: 'Find failed contract deployments',
 
   [QueryAction.GAS_PRICE]: 'Get current or historical gas price',
   [QueryAction.BLOCK_INFO]: 'Get block details by number or hash',
@@ -121,6 +124,7 @@ export const QUERY_ACTION_DESCRIPTIONS: Record<QueryAction, string> = {
   [QueryAction.CREATE_ALERT]: 'Create a new price or activity alert',
   [QueryAction.LIST_ALERTS]: 'Show your active alerts',
   [QueryAction.DELETE_ALERT]: 'Remove an existing alert',
+  [QueryAction.PAUSE_ALL_ALERTS]: 'Pause all active alerts for your account',
 
   [QueryAction.PORTFOLIO_SUMMARY]: 'Show portfolio overview with all wallets',
   [QueryAction.ADD_PORTFOLIO_WALLET]: 'Add a wallet to your portfolio',
@@ -187,6 +191,10 @@ export const QUERY_ACTION_EXAMPLES: Record<QueryAction, string[]> = {
     'Failed contract deploys last week',
     'Show failed deployments',
   ],
+  [QueryAction.DEPLOYS]: [
+    'Failed contract deploys last week',
+    'Show failed deployments',
+  ],
 
   [QueryAction.GAS_PRICE]: [
     'Gas price now',
@@ -212,6 +220,11 @@ export const QUERY_ACTION_EXAMPLES: Record<QueryAction, string[]> = {
   [QueryAction.DELETE_ALERT]: [
     'Delete alert #1',
     'Remove my gas alert',
+  ],
+  [QueryAction.PAUSE_ALL_ALERTS]: [
+    'Stop all my alerts',
+    'Pause alerts',
+    'Turn off alerts for now',
   ],
 
   [QueryAction.PORTFOLIO_SUMMARY]: [

@@ -7,6 +7,7 @@ export type ConversationStep =
   | 'awaiting_signup_otp'
   | 'awaiting_signup_wallet'
   | 'awaiting_signin_otp'
+  | 'select_network'
   | 'enter_wallet_address';
 
 export interface ConversationState {

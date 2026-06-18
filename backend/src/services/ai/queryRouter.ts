@@ -28,7 +28,7 @@ import {
   getFailedTransactions,
   getFailedContractDeployments,
 } from '../blockchain';
-import { createAlert, listAlerts, deleteAlert, pauseAlert } from '../alert';
+import { createAlert, listAlerts, deleteAlert, pauseAlert, pauseAllAlerts } from '../alert';
 import { isValidXdcAddress } from '../../utils/network';
 import { translateResponse, SupportedLanguage } from '../i18n';
 
@@ -108,6 +108,7 @@ export async function executeQuery(
       break;
 
     case QueryAction.FAILED_CONTRACT_DEPLOYMENTS:
+    case QueryAction.DEPLOYS:
       result = await handleFailedContractDeployments(parsed, network);
       break;
 
@@ -135,6 +136,10 @@ export async function executeQuery(
 
     case QueryAction.DELETE_ALERT:
       result = await handleDeleteAlert(parsed);
+      break;
+
+    case QueryAction.PAUSE_ALL_ALERTS:
+      result = await handlePauseAllAlerts(parsed);
       break;
 
     // ── Portfolio ────────────────────────────────────────────
@@ -647,7 +652,8 @@ async function handleListAlerts(parsed: ParsedQuery): Promise<QueryResult> {
       text += `   Triggers: ${alert.triggerCount}${alert.maxTriggers ? `/${alert.maxTriggers}` : ''}\n\n`;
     });
 
-    text += 'To delete: \`/deletealert <id>\`';
+    text += 'To delete: \`/deletealert <id>\`\n';
+    text += 'To stop all alerts: \`/stopalerts\`';
 
     return { text };
   } catch (err) {
@@ -677,6 +683,34 @@ async function handleDeleteAlert(parsed: ParsedQuery): Promise<QueryResult> {
   } catch (err) {
     logger.error('[queryRouter] deleteAlert failed', { error: err });
     return { text: '❌ Failed to delete alert. Please try again later.' };
+  }
+}
+
+async function handlePauseAllAlerts(parsed: ParsedQuery): Promise<QueryResult> {
+  const { userId } = parsed;
+
+  if (!userId) {
+    return { text: '❌ Unable to stop alerts. Please try again.' };
+  }
+
+  try {
+    const count = await pauseAllAlerts(userId);
+    if (count === 0) {
+      return { text: 'ℹ️ You have no active alerts to stop.' };
+    }
+
+    return {
+      text:
+        `🔕 *Alerts Paused*
+
+` +
+        `Stopped ${count} active alert${count === 1 ? '' : 's'}.
+` +
+        `Use /alerts to review your paused alerts or /deletealert <id> to remove them permanently.`,
+    };
+  } catch (err) {
+    logger.error('[queryRouter] pauseAllAlerts failed', { error: err });
+    return { text: '❌ Failed to stop alerts. Please try again later.' };
   }
 }
 

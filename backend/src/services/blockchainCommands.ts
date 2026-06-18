@@ -19,7 +19,7 @@ import {
 } from './blockchain';
 import * as walletService from './walletService';
 import { getReputation, getLeaderboard, getTier, getTierEmoji } from './reputation/reputationService';
-import { getTranslationByLang, TranslationKeys } from '../services/i18nService';
+import { getTranslationByLang } from '../services/i18nService';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -122,7 +122,7 @@ export async function cmdTrack(address: string, userId: string, platform?: strin
 
   // ── Check tier limits ────────────────────────────────────
   if (platform) {
-    const { canAddPortfolioWallet, incrementUsage } = await import('../billing/subscriptionService');
+    const { canAddPortfolioWallet, incrementUsage } = await import('./billing/subscriptionService');
     const wallets = walletService.listWallets(userId);
     const canAdd = await canAddPortfolioWallet(userId, platform as any, wallets.length);
     if (!canAdd) {
@@ -148,6 +148,17 @@ export async function cmdTrack(address: string, userId: string, platform?: strin
     };
   }
 
+  // Also save to MongoDB portfolio collection so /portfolio can find it
+  if (platform) {
+    try {
+      const { addPortfolioWallet } = await import('./portfolioService');
+      await addPortfolioWallet(userId, platform as any, address, network);
+    } catch (err) {
+      logger.error('[cmdTrack] Failed to add to portfolio DB', { error: err });
+      // Don't fail the whole command if portfolio DB save fails
+    }
+  }
+
   return {
     success: true,
     text:
@@ -160,7 +171,7 @@ export async function cmdTrack(address: string, userId: string, platform?: strin
 
 // ─── 4. Untrack Wallet ──────────────────────────────────────
 
-export function cmdUntrack(address: string, userId: string): CommandResult {
+export function cmdUntrack(address: string, userId: string, platform?: string): CommandResult {
   const result = walletService.untrackWallet(address, userId);
 
   if (!result.success) {
@@ -168,6 +179,15 @@ export function cmdUntrack(address: string, userId: string): CommandResult {
       success: false,
       text: '❌ Wallet not found in your tracked list.',
     };
+  }
+
+  // Also remove from MongoDB portfolio collection
+  if (platform) {
+    import('./portfolioService').then(({ removePortfolioWallet }) => {
+      removePortfolioWallet(userId, platform as any, address).catch((err: any) => {
+        logger.error('[cmdUntrack] Failed to remove from portfolio DB', { error: err });
+      });
+    });
   }
 
   return {
@@ -461,8 +481,73 @@ export async function cmdCreateAlert(
   args: string[]
 ): Promise<CommandResult> {
   try {
-    // ── Check tier limits ────────────────────────────────────
-    const { canCreateAlert, incrementUsage } = await import('../billing/subscriptionService');
+    // ── Validate args ──────────────────────────────────────────
+    if (!args || args.length === 0) {
+      return {
+        success: false,
+        text:
+          '🔔 *Create Alert*\n\n' +
+          'Usage examples:\n' +
+          '• \`/alert gas > 50\` — Gas price alert\n' +
+          '• \`/alert price < 0.02\` — Price alert\n' +
+          '• \`/alert failed xdc...\` — Failed tx alert\n' +
+          '• \`/alert incoming xdc...\` — Incoming tx alert',
+      };
+    }
+
+    const type = args[0]?.toLowerCase();
+    const operator = args[1];
+    const rawValue = args[2];
+    const value = parseFloat(rawValue);
+    // For failed/incoming alerts, address is at args[1]; for gas/price, it's at args[2]
+    const address = (type === 'failed' || type === 'incoming') ? args[1] : rawValue;
+
+    // ── Validate alert type ────────────────────────────────────
+    const validTypes = ['gas', 'price', 'failed', 'incoming'];
+    if (!validTypes.includes(type)) {
+      return {
+        success: false,
+        text:
+          '❌ Unknown alert type: `' + type + '`\n\n' +
+          'Valid types: gas, price, failed, incoming\n\n' +
+          'Examples:\n' +
+          '• \`/alert gas > 50\`\n' +
+          '• \`/alert price < 0.02\`',
+      };
+    }
+
+    // ── Validate numeric alerts have required args ─────────────
+    if ((type === 'gas' || type === 'price') && (!operator || isNaN(value))) {
+      return {
+        success: false,
+        text:
+          '❌ Invalid alert format.\n\n' +
+          'Usage: \`/alert ' + type + ' <operator> <value>\`\n' +
+          'Example: \`/alert ' + type + ' > 50\`',
+      };
+    }
+
+    // ── Validate address-based alerts have address ─────────────
+    if ((type === 'failed' || type === 'incoming') && !address) {
+      return {
+        success: false,
+        text:
+          '❌ Address required.\n\n' +
+          'Usage: \`/alert ' + type + ' <address>\`\n' +
+          'Example: \`/alert ' + type + ' xdc84E1...\`',
+      };
+    }
+
+    // ── Validate address format for address-based alerts ───────
+    if ((type === 'failed' || type === 'incoming') && !isValidXdcAddress(address)) {
+      return {
+        success: false,
+        text: '❌ Invalid XDC address: `' + address + '`\n\nPlease provide a valid address.',
+      };
+    }
+
+    // ── Check tier limits ──────────────────────────────────────
+    const { canCreateAlert } = await import('./billing/subscriptionService');
     const canCreate = await canCreateAlert(userId, platform as any);
     if (!canCreate) {
       return {
@@ -476,14 +561,6 @@ export async function cmdCreateAlert(
     }
 
     const { createAlert } = await import('./alert');
-
-    // Parse args: /alert gas > 50
-    // or: /alert price < 0.02
-    // or: /alert failed xdc...
-    const type = args[0]?.toLowerCase();
-    const operator = args[1];
-    const value = parseFloat(args[2]);
-    const address = args[2]; // for address-based alerts
 
     let alertType: string;
     let condition: any = {};
@@ -530,8 +607,13 @@ export async function cmdCreateAlert(
       cooldownMinutes: 60,
     });
 
-    // Track usage
-    await incrementUsage(userId, platform as any, 'alertsCreated');
+    // Track usage (best effort — don't fail if this errors)
+    try {
+      const { incrementUsage } = await import('./billing/subscriptionService');
+      await incrementUsage(userId, platform as any, 'alertsCreated');
+    } catch (usageErr) {
+      logger.warn('[cmdCreateAlert] Failed to track usage', { error: usageErr });
+    }
 
     return {
       success: true,
@@ -542,8 +624,43 @@ export async function cmdCreateAlert(
         `Status: ✅ Active\n\n` +
         `You'll be notified when the condition is met.`,
     };
-  } catch (err) {
+  } catch (err: any) {
+    // Return specific error message for validation errors
+    if (err?.name === 'ValidationError' && err?.message) {
+      logger.error('[blockchainCommands] cmdCreateAlert validation failed', { error: err.message });
+      return {
+        success: false,
+        text: '❌ *Alert Creation Failed*\n\n' + err.message,
+      };
+    }
     return formatError('cmdCreateAlert', err);
+  }
+}
+
+export async function cmdPauseAllAlerts(userId: string): Promise<CommandResult> {
+  try {
+    const { pauseAllAlerts } = await import('./alert');
+    const count = await pauseAllAlerts(userId);
+
+    if (count === 0) {
+      return {
+        success: true,
+        text: 'ℹ️ You have no active alerts to stop.',
+      };
+    }
+
+    return {
+      success: true,
+      text:
+        `🔕 *Alerts Paused*
+
+` +
+        `Stopped ${count} active alert${count === 1 ? '' : 's'}.
+` +
+        `Use /alerts to review your paused alerts or /deletealert <id> to remove them permanently.`,
+    };
+  } catch (err) {
+    return formatError('cmdPauseAllAlerts', err);
   }
 }
 
@@ -582,7 +699,7 @@ export async function cmdSetLanguage(userId: string, lang: string): Promise<Comm
     const { UserModel } = await import('../models/User');
     await UserModel.updateOne(
       { telegramId: parseInt(userId) },
-      { preferredLanguage: lang }
+      { preferredLanguage: lang as 'en' | 'hi' | 'mr' }
     );
 
     const messages: Record<string, Record<string, string>> = {
@@ -606,7 +723,7 @@ export async function cmdSetLanguage(userId: string, lang: string): Promise<Comm
 
 export async function cmdPremium(userId: string): Promise<CommandResult> {
   try {
-    const { generateUPIPayment } = await import('../payments/upiService');
+    const { generateUPIPayment } = await import('./payments/upiService');
     const payment = await generateUPIPayment(99, 'smartai@upi', userId);
 
     return {

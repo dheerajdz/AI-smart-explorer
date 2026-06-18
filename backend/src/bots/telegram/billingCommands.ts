@@ -1,6 +1,7 @@
 import { Context, Markup } from 'telegraf';
 import { logger } from '../../utils/logger';
-import { getOrCreateSubscription, getTierLimits, getUsage, SubscriptionPlatform } from '../../services/billing/subscriptionService';
+import { getOrCreateSubscription, getTierLimits, getUsage } from '../../services/billing/subscriptionService';
+import type { SubscriptionPlatform } from '../../models/Subscription';
 import { createCheckoutSession, createCustomerPortalSession } from '../../services/billing/stripeService';
 
 function formatTierName(tier: string): string {
@@ -96,7 +97,7 @@ export async function handleBillingCheckout(ctx: Context): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
 
-  const match = ctx.match;
+  const match = (ctx as any).match;
   let tier = '';
   if (typeof match === 'string') {
     tier = match.replace('billing_checkout_', '');

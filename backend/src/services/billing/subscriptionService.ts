@@ -114,7 +114,7 @@ export async function cancelSubscription(
 export async function canCreateAlert(userId: string, platform: SubscriptionPlatform): Promise<boolean> {
   const [limits, count] = await Promise.all([
     getTierLimits(userId, platform),
-    SubscriptionModel.countDocuments({ userId, platform }), // placeholder — should count actual alerts
+    (await import('../../models/Alert')).AlertModel.countDocuments({ userId, platform }),
   ]);
   return count < limits.maxAlerts;
 }

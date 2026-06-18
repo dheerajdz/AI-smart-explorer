@@ -1,5 +1,5 @@
 import { Context } from 'telegraf';
-import { Portfolio } from '../../../models/Portfolio';
+import { PortfolioModel } from '../../../models/Portfolio';
 import { getPortfolioData, refreshCache } from '../../../services/portfolioCache';
 import { sendTelegramMessage } from '../utils';
 
@@ -10,7 +10,7 @@ export default async function portfolioFast(ctx: Context) {
   // Send "Loading..." instantly
   await sendTelegramMessage(userId, '⏳ Fetching portfolio...');
 
-  const portfolio = await Portfolio.findOne({ userId });
+  const portfolio = await PortfolioModel.findByUser(userId, 'telegram');
   if (!portfolio || portfolio.wallets.length === 0) {
     await sendTelegramMessage(userId, 
       'Portfolio\n\nYou have no wallets yet. Use the app to add wallets.');
@@ -51,7 +51,7 @@ export default async function portfolioFast(ctx: Context) {
 // Background refresh every 3 minutes
 export function startBackgroundRefresh() {
   setInterval(async () => {
-    const portfolios = await Portfolio.find({});
+    const portfolios = await PortfolioModel.getCollection().find({}).toArray();
     for (const p of portfolios) {
       await refreshCache(p.userId, p.wallets).catch(() => {});
     }

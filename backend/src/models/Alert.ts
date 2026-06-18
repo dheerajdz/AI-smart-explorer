@@ -17,6 +17,8 @@ export interface IAlert extends Document {
     address?: string;
     threshold?: number;
     unit?: string;
+    network?: 'mainnet' | 'testnet';
+    previousBalance?: number;
   };
   status: AlertStatus;
   isActive: boolean;
@@ -46,6 +48,8 @@ const AlertSchema = new Schema<IAlert>(
       address: { type: String },
       threshold: { type: Number },
       unit: { type: String },
+      network: { type: String, enum: ['mainnet', 'testnet'] },
+      previousBalance: { type: Number },
     },
     status: { type: String, enum: ['active', 'paused', 'triggered', 'expired'], default: 'active' },
     isActive: { type: Boolean, default: true },

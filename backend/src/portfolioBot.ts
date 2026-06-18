@@ -138,7 +138,7 @@ async function main() {
 
     try {
       const userId = String(telegramId);
-      const portfolio = await mongoose.connection.db
+      const portfolio = await mongoose.connection.db!
         .collection('portfolios')
         .findOne({ userId });
 

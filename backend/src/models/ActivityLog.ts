@@ -31,7 +31,7 @@ export class ActivityLogModel {
     return { ...log, _id: result.insertedId.toString() };
   }
 
-  static async findByUserId(userId: string, platform: string, limit: number = 50): Promise<IActivityLog[]> {
+  static async findByUserId(userId: string, platform: 'telegram' | 'whatsapp' | 'slack' | 'x', limit: number = 50): Promise<IActivityLog[]> {
     return this.getCollection()
       .find({ userId, platform })
       .sort({ createdAt: -1 })
@@ -47,7 +47,7 @@ export class ActivityLogModel {
       .toArray();
   }
 
-  static async countByUser(userId: string, platform: string): Promise<number> {
+  static async countByUser(userId: string, platform: 'telegram' | 'whatsapp' | 'slack' | 'x'): Promise<number> {
     return this.getCollection().countDocuments({ userId, platform });
   }
 

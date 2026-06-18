@@ -49,6 +49,12 @@ async function showWelcomeNew(ctx: Context): Promise<void> {
     ],
   ]);
 
+  // Set conversation state so text input "mainnet"/"testnet" works too
+  await ConversationStateService.setState({
+    step: 'select_network',
+    telegramId,
+  });
+
   await ctx.reply(text, { parse_mode: 'Markdown', ...keyboard });
 }
 
@@ -268,7 +274,7 @@ export async function handleMenuTrack(ctx: Context): Promise<void> {
     : wallet.address;
 
   const { cmdTrack } = await import('../../services/blockchainCommands');
-  const result = cmdTrack(address, String(telegramId));
+  const result = await cmdTrack(address, String(telegramId));
   await ctx.reply(result.text, { parse_mode: 'Markdown' });
   await ctx.answerCbQuery();
 }

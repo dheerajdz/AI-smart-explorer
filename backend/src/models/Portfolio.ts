@@ -27,11 +27,11 @@ export class PortfolioModel {
     return getDb().collection<IPortfolio>(COLLECTION_NAME);
   }
 
-  static async findByUser(userId: string, platform: string): Promise<IPortfolio | null> {
+  static async findByUser(userId: string, platform: 'telegram' | 'whatsapp' | 'slack' | 'x'): Promise<IPortfolio | null> {
     return this.getCollection().findOne({ userId, platform });
   }
 
-  static async create(userId: string, platform: string): Promise<IPortfolio> {
+  static async create(userId: string, platform: 'telegram' | 'whatsapp' | 'slack' | 'x'): Promise<IPortfolio> {
     const now = new Date();
     const portfolio: IPortfolio = {
       userId,
@@ -51,7 +51,7 @@ export class PortfolioModel {
 
   static async addWallet(
     userId: string,
-    platform: string,
+    platform: 'telegram' | 'whatsapp' | 'slack' | 'x',
     wallet: IPortfolioWallet
   ): Promise<boolean> {
     const result = await this.getCollection().updateOne(
@@ -67,7 +67,7 @@ export class PortfolioModel {
 
   static async removeWallet(
     userId: string,
-    platform: string,
+    platform: 'telegram' | 'whatsapp' | 'slack' | 'x',
     address: string
   ): Promise<boolean> {
     const result = await this.getCollection().updateOne(
@@ -82,7 +82,7 @@ export class PortfolioModel {
 
   static async updateBalances(
     userId: string,
-    platform: string,
+    platform: 'telegram' | 'whatsapp' | 'slack' | 'x',
     totalBalanceXDC: string,
     totalBalanceUSD: string
   ): Promise<boolean> {

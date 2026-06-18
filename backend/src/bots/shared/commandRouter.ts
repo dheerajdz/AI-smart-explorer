@@ -16,7 +16,9 @@ import {
   cmdLargeTransfers,
   cmdPrice,
   cmdStatus,
+  cmdHelp,
   cmdListAlerts,
+  cmdPauseAllAlerts,
   cmdSetLanguage,
   cmdCreateAlert,
   cmdDeleteAlert,
@@ -25,7 +27,7 @@ import {
   cmdLeaderboard,
 } from '../../services/blockchainCommands';
 import { getMultiChainBalance, getMultiChainTransactions, getMultiChainGasPrice } from '../../services/multiChain/multiChainService';
-import { getSupportedChains } from '../../config/chains';
+import { getSupportedChains, getChainConfig } from '../../config/chains';
 import { getUserTranslation, setUserLanguage } from '../../services/i18nService';
 
 export async function commandRouter(
@@ -184,13 +186,17 @@ export async function commandRouter(
         input: address,
         metadata: { address },
       });
-      return { text: cmdUntrack(address, userId).text, parseMode: 'markdown' };
+      return { text: (await cmdUntrack(address, userId)).text, parseMode: 'markdown' };
 
     case '/list':
       return { text: cmdList(userId).text, parseMode: 'markdown' };
 
     case '/alerts':
       return { text: (await cmdListAlerts(userId)).text, parseMode: 'markdown' };
+
+    case '/stopalerts':
+    case '/pausealerts':
+      return { text: (await cmdPauseAllAlerts(userId)).text, parseMode: 'markdown' };
 
     case '/premium':
       return { text: (await cmdPremium(userId)).text, parseMode: 'markdown' };
@@ -243,7 +249,12 @@ export async function commandRouter(
           parseMode: 'markdown',
         };
       }
-      return { text: (await cmdCreateAlert(userId, platform, chatId, args)).text, parseMode: 'markdown' };
+      // Map symbolic operators to schema enum values
+      const mappedArgs = [...args];
+      if (mappedArgs[1] === '>') mappedArgs[1] = 'above';
+      if (mappedArgs[1] === '<') mappedArgs[1] = 'below';
+      if (mappedArgs[1] === '=') mappedArgs[1] = 'equals';
+      return { text: (await cmdCreateAlert(userId, platform, userId, mappedArgs)).text, parseMode: 'markdown' };
     }
 
     case '/deletealert':
@@ -265,6 +276,7 @@ export async function commandRouter(
         parseMode: 'markdown',
       };
 
+    case '/rep':
     case '/reputation': {
       const addr = address || (await getConnectedAddress(platform, userId));
       if (!addr) return { text: 'Usage: /reputation <address>\n\nOr connect a wallet first.' };

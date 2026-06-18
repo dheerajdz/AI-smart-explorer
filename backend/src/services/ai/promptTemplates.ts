@@ -39,6 +39,7 @@ Supported actions:
 - create_alert         → Create a price/activity alert
 - list_alerts          → List active alerts
 - delete_alert         → Delete an alert
+- pause_all_alerts     → Pause all active alerts
 - help                 → Show menu/help (use for "main menu", "help", "what can you do", "start")
 
 Examples:
@@ -82,6 +83,10 @@ Output:
 Input: "Tx 0xabcd...1234"
 Output:
 {"action":"transaction_detail","txHash":"0xabcd...1234"}
+
+Input: "Stop all alerts"
+Output:
+{"action":"pause_all_alerts"}
 
 Input: "How many XDC does 0x1111... hold?"
 Output:

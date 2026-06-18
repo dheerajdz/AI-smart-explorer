@@ -1,6 +1,6 @@
-import { CommandResult } from '../types';
+import { BotResponse } from '../types';
 
-export function getHelpText(): CommandResult {
+export function getHelpText(): BotResponse {
   return {
     text: `Smart AI Explorer Commands
 

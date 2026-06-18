@@ -56,10 +56,13 @@ export function createBot(): Telegraf {
   bot.command('menu', menuCommand);
   bot.command('logout', logoutCommand);
   bot.command('subscription', subscriptionCommand);
+  bot.command('myplan', subscriptionCommand);  // alias
   bot.command('portfolio', portfolioCommand);
   bot.command('reputation', reputationCommand);
+  bot.command('rep', reputationCommand);  // alias
   bot.command('leaderboard', leaderboardCommand);
   bot.command('upgrade', upgradeCommand);
+  bot.command('plans', upgradeCommand);  // alias
   bot.command('track', trackCommand);
   bot.command('untrack', untrackCommand);
   bot.command('list', listCommand);

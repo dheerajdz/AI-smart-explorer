@@ -7,10 +7,10 @@ import { logger } from '../utils/logger';
  */
 export async function getUserLanguage(
   userId: string,
-  platform: string
+  platform: 'telegram' | 'whatsapp' | 'slack' | 'x'
 ): Promise<string> {
   try {
-    const wallet = await ConnectedWalletModel.findByUserId(userId, platform as any);
+    const wallet = await ConnectedWalletModel.findByUserId(userId, platform);
     return wallet?.language || 'en';
   } catch (err) {
     logger.error('[i18nService] Failed to get user language', { userId, error: err });
@@ -23,7 +23,7 @@ export async function getUserLanguage(
  */
 export async function setUserLanguage(
   userId: string,
-  platform: string,
+  platform: 'telegram' | 'whatsapp' | 'slack' | 'x',
   language: string
 ): Promise<boolean> {
   try {
@@ -43,7 +43,7 @@ export async function setUserLanguage(
  */
 export async function getUserTranslation(
   userId: string,
-  platform: string
+  platform: 'telegram' | 'whatsapp' | 'slack' | 'x'
 ): Promise<TranslationKeys> {
   const lang = await getUserLanguage(userId, platform);
   return getTranslation(lang);
