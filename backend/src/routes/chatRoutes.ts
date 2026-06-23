@@ -1,5 +1,6 @@
 import express from "express";
 import { parseQuery } from "../services/ai";
+import { logger } from "../utils/logger";
 
 const router = express.Router();
 
@@ -12,7 +13,7 @@ router.post("/chat", async (req, res) => {
 
     res.json(parsed);
   } catch (error) {
-    console.error(error);
+    logger.error('[chatRoutes] Failed to process query', { error });
     res.status(500).json({
       error: "Failed to process query"
     });

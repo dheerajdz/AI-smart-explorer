@@ -1,11 +1,16 @@
 import 'dotenv/config';
+import { logger } from './utils/logger';
 import { Telegraf } from 'telegraf';
 import mongoose from 'mongoose';
 import * as https from 'https';
 
 // FIX: Force IPv4 for WSL — node-fetch hangs on IPv6
 const agent = new https.Agent({ family: 4 });
-const token = process.env.TELEGRAM_BOT_TOKEN!;
+const token = process.env.TELEGRAM_BOT_TOKEN;
+if (!token) {
+  logger.error('[portfolioBot] TELEGRAM_BOT_TOKEN is not set');
+  process.exit(1);
+}
 
 // Helper to send message via native https (bypasses node-fetch hang)
 function sendMessage(chatId: number, text: string): Promise<void> {
@@ -111,11 +116,11 @@ async function getBalance(address: string): Promise<string> {
 }
 
 async function main() {
-  console.log('[bot] starting...');
+  logger.info('[bot] starting...');
   await mongoose.connect(
     process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/smart-ai-explorer'
   );
-  console.log('[bot] mongo connected');
+  logger.info('[bot] mongo connected');
 
   const bot = new Telegraf(token, {
     telegram: { agent: agent as any },
@@ -220,10 +225,10 @@ async function main() {
 
   // @ts-ignore
   await bot.launch();
-  console.log('[bot] launched — send /start or /portfolio in Telegram');
+  logger.info('[bot] launched — send /start or /portfolio in Telegram');
 }
 
 main().catch((err) => {
-  console.error('[bot] fatal error:', err);
+  logger.error('[bot] fatal error:', err);
   process.exit(1);
 });

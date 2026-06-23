@@ -9,16 +9,16 @@ const envSchema = z.object({
   TELEGRAM_BOT_TOKEN: z.string().min(1, 'TELEGRAM_BOT_TOKEN is required'),
   
   // ── Kimi AI ─────────────────────────────────────────────────
-  KIMI_API_KEY: z.string().optional().default(''),
+  KIMI_API_KEY: z.string().min(1, 'KIMI_API_KEY is required'),
   KIMI_BASE_URL: z.string().url().optional().default('https://api.moonshot.cn/v1'),
   KIMI_MODEL: z.string().optional().default('moonshot-v1-8k'),
   
   // ── OpenRouter AI ───────────────────────────────────────────
-  OPENROUTER_API_KEY: z.string().optional().default(''),
+  OPENROUTER_API_KEY: z.string().min(1, 'OPENROUTER_API_KEY is required'),
   OPENROUTER_MODEL: z.string().optional().default('meta-llama/llama-3.1-8b-instruct:free'),
   
   // ── Groq AI ──────────────────────────────────────────────────
-  GROQ_API_KEY: z.string().optional().default(''),
+  GROQ_API_KEY: z.string().min(1, 'GROQ_API_KEY is required'),
   GROQ_MODEL: z.string().optional().default('llama-3.3-70b-versatile'),
   
   // ── Stripe Billing ──────────────────────────────────────────

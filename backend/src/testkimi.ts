@@ -1,4 +1,5 @@
 import { parseQuery, formatResponse } from "./services/ai";
+import { logger } from "./utils/logger";
 
 async function runTest() {
   // Step 1: test query parsing
@@ -6,7 +7,7 @@ async function runTest() {
     "Show failed contract deploys last week"
   );
 
-  console.log("PARSED RESULT:", parsed);
+  logger.info("PARSED RESULT:", parsed);
 
   // Step 2: test response formatting (mock data)
   const formatted = await formatResponse({
@@ -17,7 +18,7 @@ async function runTest() {
     ],
   });
 
-  console.log("FORMATTED RESPONSE:", formatted);
+  logger.info("FORMATTED RESPONSE:", formatted);
 }
 
 runTest();
