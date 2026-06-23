@@ -1,5 +1,6 @@
 import { getDb } from '../database/mongodb';
 import { logger } from '../utils/logger';
+import { sanitizeString, validateUserId, sanitizeWalletAddress } from '../utils/sanitizer';
 
 export interface IConnectedWallet {
   _id?: string;
@@ -26,7 +27,11 @@ export class ConnectedWalletModel {
   }
 
   static async findByUserId(userId: string, platform: 'telegram' | 'whatsapp' | 'slack' | 'x'): Promise<IConnectedWallet | null> {
-    return this.getCollection().findOne({ userId, platform, isConnected: true });
+    if (!validateUserId(userId)) {
+      logger.warn('[ConnectedWallet] Invalid userId rejected', { userId });
+      return null;
+    }
+    return this.getCollection().findOne({ userId: sanitizeString(userId), platform, isConnected: true });
   }
 
   static async countDocuments(filter: Partial<IConnectedWallet>): Promise<number> {
@@ -35,8 +40,19 @@ export class ConnectedWalletModel {
 
   static async create(walletData: Omit<IConnectedWallet, '_id' | 'createdAt' | 'updatedAt'>): Promise<IConnectedWallet> {
     const now = new Date();
+    
+    // Sanitize inputs
+    const sanitizedAddress = sanitizeWalletAddress(walletData.address);
+    if (!sanitizedAddress) {
+      logger.warn('[ConnectedWallet] Invalid address rejected', { address: walletData.address });
+      throw new Error('Invalid wallet address');
+    }
+    
     const wallet: IConnectedWallet = {
       ...walletData,
+      userId: sanitizeString(walletData.userId),
+      address: sanitizedAddress,
+      label: walletData.label ? sanitizeString(walletData.label) : undefined,
       language: walletData.language || 'en',
       createdAt: now,
       updatedAt: now,
