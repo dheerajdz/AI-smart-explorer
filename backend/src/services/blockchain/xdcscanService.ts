@@ -12,7 +12,7 @@
 import axios, { AxiosError } from 'axios';
 import { logger } from '../../utils/logger';
 import { env } from '../../config/env';
-import { Network, getExplorerBaseUrl, getAddressExplorerUrl } from '../../utils/network';
+import { Network, getExplorerBaseUrl, getAddressExplorerUrl, isValidXdcAddress } from '../../utils/network';
 
 // ─── Config ─────────────────────────────────────────────────
 
@@ -32,6 +32,17 @@ function createXdcscanClient(network: Network = 'mainnet') {
       'Content-Type': 'application/json',
     },
   });
+}
+
+/**
+ * Sanitize and validate blockchain address.
+ * Returns sanitized address or null if invalid.
+ */
+function sanitizeAddress(address: string): string | null {
+  if (!address || typeof address !== 'string') return null;
+  const trimmed = address.trim();
+  if (!isValidXdcAddress(trimmed)) return null;
+  return trimmed.toLowerCase();
 }
 
 /**
@@ -208,6 +219,19 @@ export async function getWalletBalance(
   address: string,
   network: Network = 'mainnet'
 ): Promise<WalletBalanceResponse> {
+  const sanitized = sanitizeAddress(address);
+  if (!sanitized) {
+    logger.warn('[XDCScan] Invalid address rejected', { address });
+    return {
+      address: address || 'invalid',
+      balance: '0',
+      balanceXDC: '0',
+      network,
+      source: 'xdcscan',
+      explorerUrl: '',
+    };
+  }
+  address = sanitized;
   logger.info('[XDCScan] getWalletBalance', { address, network });
 
   try {
@@ -259,6 +283,19 @@ export async function getTransactions(
   page: number = 1,
   offset: number = 10,
 ): Promise<TransactionsResponse> {
+  const sanitized = sanitizeAddress(address);
+  if (!sanitized) {
+    logger.warn('[XDCScan] Invalid address rejected in getTransactions', { address });
+    return {
+      address: address || 'invalid',
+      transactions: [],
+      totalCount: 0,
+      network,
+      source: 'xdcscan',
+      explorerUrl: '',
+    };
+  }
+  address = sanitized;
   logger.info('[XDCScan] getTransactions', { address, network, page, offset });
 
   const xdcscanClient = createXdcscanClient(network);
