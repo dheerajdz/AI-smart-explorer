@@ -223,7 +223,6 @@ async function main() {
     }
   });
 
-  // @ts-ignore
   await bot.launch();
   logger.info('[bot] launched — send /start or /portfolio in Telegram');
 }
