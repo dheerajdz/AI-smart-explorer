@@ -38,6 +38,12 @@ const envSchema = z.object({
   XDCSCAN_TESTNET_API: z.string().url().optional().default('https://erpc.apothem.network'),
   XDC_TESTNET_RPC: z.string().url().optional().default('https://erpc.apothem.network'),
   
+  // ── Explorer API Keys ───────────────────────────────────────
+  ETHERSCAN_API_KEY: z.string().optional(),
+  BASESCAN_API_KEY: z.string().optional(),
+  POLYGONSCAN_API_KEY: z.string().optional(),
+  BSCSCAN_API_KEY: z.string().optional(),
+  
   // ── Twilio (WhatsApp) ───────────────────────────────────────
   TWILIO_ACCOUNT_SID: z.string().min(1, 'TWILIO_ACCOUNT_SID is required'),
   TWILIO_AUTH_TOKEN: z.string().min(1, 'TWILIO_AUTH_TOKEN is required'),
@@ -53,6 +59,10 @@ const envSchema = z.object({
   X_ACCESS_TOKEN: z.string().optional(),
   X_ACCESS_SECRET: z.string().optional(),
   
+  // ── Logging ───────────────────────────────────────────────────
+  LOG_LEVEL: z.string().optional().default('info'),
+  NODE_ENV: z.string().optional().default('development'),
+
   // ── Email / SMTP (for OTP) ──────────────────────────────────
   SMTP_HOST: z.string().min(1, 'SMTP_HOST is required'),
   SMTP_PORT: z.string().default('587').transform((v) => parseInt(v, 10)),

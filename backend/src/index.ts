@@ -55,9 +55,21 @@ async function main(): Promise<void> {
   const app = express();
   app.use(helmet());
   // ── CORS ────────────────────────────────────────────────────
-  const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
-    ? process.env.CORS_ALLOWED_ORIGINS.split(',').map((o) => o.trim())
-    : [env.FRONTEND_URL];
+  // Validate and parse CORS_ALLOWED_ORIGINS from env
+  const allowedOrigins = (() => {
+    const raw = process.env.CORS_ALLOWED_ORIGINS;
+    if (!raw) return [env.FRONTEND_URL];
+    // Validate: only allow http:// or https:// origins
+    const origins = raw.split(',').map((o) => o.trim()).filter(Boolean);
+    const validOrigins = origins.filter((o) => {
+      const isValid = o === '*' || /^https?:\/\//.test(o);
+      if (!isValid) {
+        logger.warn('[cors] Ignoring invalid origin', { origin: o });
+      }
+      return isValid;
+    });
+    return validOrigins.length > 0 ? validOrigins : [env.FRONTEND_URL];
+  })();
 
   app.use(
     cors({

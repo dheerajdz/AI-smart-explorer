@@ -1,3 +1,5 @@
+import { env } from './env';
+
 export interface ChainConfig {
   id: string;
   name: string;
@@ -41,7 +43,7 @@ export const CHAINS: Record<string, ChainConfig> = {
     rpcUrl: 'https://eth.llamarpc.com',
     explorerUrl: 'https://etherscan.io',
     apiUrl: 'https://api.etherscan.io/api',
-    apiKey: process.env.ETHERSCAN_API_KEY,
+    apiKey: env.ETHERSCAN_API_KEY,
     chainId: 1,
     isTestnet: false,
     logo: '💠',
@@ -53,7 +55,7 @@ export const CHAINS: Record<string, ChainConfig> = {
     rpcUrl: 'https://base.llamarpc.com',
     explorerUrl: 'https://basescan.org',
     apiUrl: 'https://api.basescan.org/api',
-    apiKey: process.env.BASESCAN_API_KEY,
+    apiKey: env.BASESCAN_API_KEY,
     chainId: 8453,
     isTestnet: false,
     logo: '🔵',
@@ -65,7 +67,7 @@ export const CHAINS: Record<string, ChainConfig> = {
     rpcUrl: 'https://polygon.llamarpc.com',
     explorerUrl: 'https://polygonscan.com',
     apiUrl: 'https://api.polygonscan.com/api',
-    apiKey: process.env.POLYGONSCAN_API_KEY,
+    apiKey: env.POLYGONSCAN_API_KEY,
     chainId: 137,
     isTestnet: false,
     logo: '🟣',
@@ -77,7 +79,7 @@ export const CHAINS: Record<string, ChainConfig> = {
     rpcUrl: 'https://binance.llamarpc.com',
     explorerUrl: 'https://bscscan.com',
     apiUrl: 'https://api.bscscan.com/api',
-    apiKey: process.env.BSCSCAN_API_KEY,
+    apiKey: env.BSCSCAN_API_KEY,
     chainId: 56,
     isTestnet: false,
     logo: '🟡',

@@ -29,18 +29,8 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
   const token = authHeader.split(' ')[1];
 
   try {
-    // Use JWT_SECRET from env, fallback to a default only for dev (should be set in production)
-    const secret = env.JWT_SECRET || process.env.JWT_SECRET;
-    if (!secret) {
-      logger.error('[auth] JWT_SECRET not configured');
-      res.status(500).json({
-        success: false,
-        message: 'Server error: Authentication not configured',
-      });
-      return;
-    }
-
-    const decoded = jwt.verify(token, secret) as {
+    // JWT_SECRET is validated as required in config/env.ts
+    const decoded = jwt.verify(token, env.JWT_SECRET) as {
       userId: string;
       email: string;
       role?: string;
@@ -71,12 +61,8 @@ export function optionalAuthMiddleware(req: AuthRequest, res: Response, next: Ne
   const token = authHeader.split(' ')[1];
 
   try {
-    const secret = env.JWT_SECRET || process.env.JWT_SECRET;
-    if (!secret) {
-      return next();
-    }
-
-    const decoded = jwt.verify(token, secret) as {
+    // JWT_SECRET is validated as required in config/env.ts
+    const decoded = jwt.verify(token, env.JWT_SECRET) as {
       userId: string;
       email: string;
       role?: string;
