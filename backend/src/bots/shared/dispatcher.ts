@@ -3,6 +3,7 @@ import { Platform, BotResponse } from './types';
 import { isGreeting, generateWelcome } from './welcome';
 import { commandRouter, handleAddressOnly } from './commandRouter';
 import { keywordRouter } from '../../services/keywordRouter';
+import { parseQuery, executeQuery } from '../../services/ai';
 import { ActivityLogModel } from '../../models/ActivityLog';
 
 /**
@@ -53,9 +54,23 @@ export async function dispatch(
     return response;
   }
 
-  // ─── 3. AI / Natural language routing (DISABLED for now) ────
-  // TODO: Re-enable when Groq NLU pipeline is fully tested
-  logger.info('[dispatch] AI routing disabled, using keyword fallback');
+  // ─── 3. AI / Natural language routing ─────────────────────
+  try {
+    const parsed = await parseQuery(trimmed);
+    const result = await executeQuery(parsed);
+    logger.info('[dispatch] AI routing success', { action: parsed.action });
+    await ActivityLogModel.create({
+      userId,
+      platform,
+      action: 'ai_query',
+      input: trimmed,
+      output: result.text.substring(0, 200),
+      metadata: { action: parsed.action, params: parsed },
+    });
+    return { text: result.text };
+  } catch (err) {
+    logger.warn('[dispatch] AI routing failed, falling back to keyword', { error: err });
+  }
 
   // ─── 4. Keyword routing (fallback) ──────────────────────────
   const keywordResult = await keywordRouter(trimmed, userId, platform);
