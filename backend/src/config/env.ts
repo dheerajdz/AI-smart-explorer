@@ -28,7 +28,9 @@ const envSchema = z.object({
   STRIPE_PRO_PRICE_ID: z.string().optional(),
   STRIPE_ENTERPRISE_PRICE_ID: z.string().optional(),
   
-  // ── Frontend ────────────────────────────────────────────────
+  // ── JWT ───────────────────────────────────────────────────────
+  JWT_SECRET: z.string().min(1, 'JWT_SECRET is required'),
+  JWT_EXPIRES_IN: z.string().default('7d'),
   FRONTEND_URL: z.string().url().optional().default('http://localhost:3000'),
   
   // ── Blockchain APIs ─────────────────────────────────────────

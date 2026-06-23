@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import routes from './routes';
 import { createTelegramBot, createWhatsAppBot } from './bots';
 import { createSlackBot, handleSlackEvent } from './bots/slack';
@@ -53,7 +54,57 @@ async function main(): Promise<void> {
 
   const app = express();
   app.use(helmet());
-  app.use(cors());
+  // ── CORS ────────────────────────────────────────────────────
+  const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
+    ? process.env.CORS_ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+    : [env.FRONTEND_URL];
+
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, curl, etc.)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        logger.warn('[cors] Blocked request from origin', { origin, allowedOrigins });
+        return callback(new Error('Not allowed by CORS'), false);
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    })
+  );
+
+  // ── Rate Limiting ───────────────────────────────────────────
+  const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req: Request, res: Response) => {
+      logger.warn('[rateLimit] Too many requests', { ip: req.ip, path: req.path });
+      res.status(429).json({ success: false, message: 'Too many requests, please try again later.' });
+    },
+  });
+
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // stricter limit for auth endpoints
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req: Request, res: Response) => {
+      logger.warn('[rateLimit] Too many auth attempts', { ip: req.ip, path: req.path });
+      res.status(429).json({ success: false, message: 'Too many auth attempts, please try again later.' });
+    },
+  });
+
+  const webhookLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 50, // webhooks can be more frequent
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  app.use(generalLimiter);
 
   // Twilio webhook requires raw body for signature verification (future use)
   // For now, URL-encoded body is enough for Sandbox
