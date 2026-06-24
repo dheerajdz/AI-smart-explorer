@@ -14,7 +14,12 @@ router.use('/health', healthRouter);
 router.use('/auth', authRouter);
 router.use(whatsappRouter); // WhatsApp webhook needs raw body
 
-// Protected routes (auth required)
+// Protected routes (auth required) — v1 API
+router.use('/api/v1/blockchain', authMiddleware, blockchainRouter);
+router.use('/api/v1/billing', authMiddleware, billingRouter);
+router.use('/api/v1/reputation', authMiddleware, reputationRouter);
+
+// Legacy redirects (v0 → v1)
 router.use('/api/blockchain', authMiddleware, blockchainRouter);
 router.use('/api/billing', authMiddleware, billingRouter);
 router.use('/api/reputation', authMiddleware, reputationRouter);

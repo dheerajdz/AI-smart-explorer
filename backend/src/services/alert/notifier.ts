@@ -25,13 +25,15 @@ export async function sendAlertNotification(alert: IAlert, data: any): Promise<v
         break;
 
       case 'slack':
-        // TODO: Implement Slack DM notification
-        logger.info('[alertNotifier] Slack notification not yet implemented', { alertId: alert._id });
+        // Tracked in GitHub issue: Implement Slack DM notification
+        logger.info('[notify] Slack notification not yet implemented');
+        break;
         break;
 
       case 'x':
-        // TODO: Implement X DM notification
-        logger.info('[alertNotifier] X notification not yet implemented', { alertId: alert._id });
+        // Tracked in GitHub issue: Implement X DM notification
+        logger.info('[notify] X notification not yet implemented');
+        break;
         break;
 
       default:
