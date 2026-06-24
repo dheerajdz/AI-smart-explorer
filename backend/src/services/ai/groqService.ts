@@ -29,6 +29,10 @@ export async function askGroq(prompt: string): Promise<string> {
   logger.info('Asking Groq', { promptLength: prompt.length, model: GROQ_MODEL });
 
   if (!GROQ_API_KEY || GROQ_API_KEY === 'your_groq_api_key_here') {
+    if (env.NODE_ENV === 'production') {
+      logger.error('GROQ_API_KEY is required in production');
+      throw new Error('GROQ_API_KEY is required in production. Set it in your environment variables.');
+    }
     logger.warn('No GROQ_API_KEY configured');
     throw new Error('No GROQ_API_KEY configured');
   }

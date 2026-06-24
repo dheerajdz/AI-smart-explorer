@@ -89,6 +89,8 @@ export class ConnectedWalletModel {
     const collection = this.getCollection();
     await collection.createIndex({ userId: 1, platform: 1 }, { unique: true });
     await collection.createIndex({ isConnected: 1 });
+    await collection.createIndex({ userId: 1, isConnected: 1, createdAt: -1 });
+    await collection.createIndex({ address: 1, network: 1 });
     logger.info('ConnectedWallet indexes created');
   }
 }

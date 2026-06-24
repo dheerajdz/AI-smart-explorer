@@ -103,6 +103,8 @@ export class PortfolioModel {
   static async createIndexes(): Promise<void> {
     const collection = this.getCollection();
     await collection.createIndex({ userId: 1, platform: 1 }, { unique: true });
+    await collection.createIndex({ userId: 1, lastUpdated: -1 });
+    await collection.createIndex({ 'wallets.address': 1, 'wallets.network': 1 });
     logger.info('Portfolio indexes created');
   }
 }

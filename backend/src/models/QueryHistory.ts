@@ -20,4 +20,10 @@ const QueryHistorySchema = new Schema<IQueryHistory>(
   { timestamps: true }
 );
 
+// Compound index for user queries sorted by time (most common query pattern)
+QueryHistorySchema.index({ userId: 1, createdAt: -1 });
+
+// Index for intent-based analytics
+QueryHistorySchema.index({ intent: 1, createdAt: -1 });
+
 export const QueryHistory = mongoose.model<IQueryHistory>('QueryHistory', QueryHistorySchema);

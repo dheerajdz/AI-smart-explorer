@@ -38,6 +38,10 @@ export async function askKimi(prompt: string): Promise<string> {
   logger.info('Asking OpenRouter', { promptLength: prompt.length });
 
   if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY === 'your_openrouter_api_key_here') {
+    if (env.NODE_ENV === 'production') {
+      logger.error('OPENROUTER_API_KEY is required in production');
+      throw new Error('OPENROUTER_API_KEY is required in production. Set it in your environment variables.');
+    }
     logger.warn('No OPENROUTER_API_KEY configured, returning mock response');
     return mockKimiResponse(prompt);
   }
