@@ -7,6 +7,7 @@ import {
   getOrCreateSubscription,
 } from '../services/billing/subscriptionService';
 import { logger } from '../utils/logger';
+import { env } from '../config/env';
 import { z } from 'zod';
 
 const router = Router();
@@ -143,6 +144,8 @@ router.get('/success', async (req: Request, res: Response) => {
 
     const tier = session.metadata?.tier || 'unknown';
     
+    const telegramBotUrl = process.env.TELEGRAM_BOT_URL || 'https://t.me/AISmartExplorerXDCbot';
+    
     res.send(`
       <!DOCTYPE html>
       <html>
@@ -165,7 +168,7 @@ router.get('/success', async (req: Request, res: Response) => {
             <div class="tier">${tier === 'pro' ? '💎 Pro Plan' : tier === 'enterprise' ? '🏢 Enterprise Plan' : 'Plan'} Activated</div>
             <div class="message">Thank you for upgrading! Your subscription is now active.</div>
             <div class="message">Return to Telegram and use /subscription to see your new limits.</div>
-            <a class="btn" href="https://t.me/AISmartExplorerXDCbot">Open Telegram Bot</a>
+            <a class="btn" href="${telegramBotUrl}">Open Telegram Bot</a>
           </div>
         </body>
       </html>
@@ -181,6 +184,7 @@ router.get('/success', async (req: Request, res: Response) => {
  * Handle cancelled checkout
  */
 router.get('/cancel', (req: Request, res: Response) => {
+  const telegramBotUrl = process.env.TELEGRAM_BOT_URL || 'https://t.me/AISmartExplorerXDCbot';
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -201,7 +205,7 @@ router.get('/cancel', (req: Request, res: Response) => {
           <h1>Payment Cancelled</h1>
           <div class="message">You cancelled the checkout process. No charges were made.</div>
           <div class="message">You can upgrade anytime with /upgrade in the bot.</div>
-          <a class="btn" href="https://t.me/AISmartExplorerXDCbot">Back to Bot</a>
+          <a class="btn" href="${telegramBotUrl}">Back to Bot</a>
         </div>
       </body>
     </html>

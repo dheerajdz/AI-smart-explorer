@@ -53,7 +53,36 @@ async function main(): Promise<void> {
   await connectMongoose();
 
   const app = express();
-  app.use(helmet());
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+    hsts: {
+      maxAge: 31536000, // 1 year
+      includeSubDomains: true,
+      preload: true,
+    },
+    referrerPolicy: { policy: 'same-origin' },
+    permittedCrossDomainPolicies: { permittedPolicies: 'none' },
+  }));
+  // ── HTTPS Enforcement (production only) ───────────────────
+  if (env.NODE_ENV === 'production') {
+    app.use((req: Request, res: Response, next) => {
+      if (req.headers['x-forwarded-proto'] !== 'https') {
+        return res.redirect(301, `https://${req.headers.host}${req.url}`);
+      }
+      next();
+    });
+  }
   // ── CORS ────────────────────────────────────────────────────
   // Validate and parse CORS_ALLOWED_ORIGINS from env
   const allowedOrigins = (() => {
@@ -120,7 +149,7 @@ async function main(): Promise<void> {
 
   // Twilio webhook requires raw body for signature verification (future use)
   // For now, URL-encoded body is enough for Sandbox
-  app.use(express.urlencoded({ extended: false }));
+  app.use(express.urlencoded({ extended: false, limit: '10kb' }));
 
   // ── Slack events ────────────────────────────────────────────
   // Bolt's ExpressReceiver requires signature headers on ALL requests,
@@ -154,14 +183,26 @@ async function main(): Promise<void> {
     });
   }
 
-  app.use(express.json());
+  app.use(express.json({ limit: '10kb' }));
   app.use(requestLogger);
 
   // X webhook router
   app.use(getXWebhookRouter());
 
-  // External webhook endpoint for real-time alerts
-  app.post('/webhook/alerts', handleWebhook);
+  // ── Webhook Secret Verification ─────────────────────────────
+  // Generic webhook secret verification middleware
+  function verifyWebhookSecret(req: Request, res: Response, next: NextFunction): void {
+    const secret = req.headers['x-webhook-secret'] as string;
+    if (!secret || secret !== env.WEBHOOK_SECRET) {
+      logger.warn('[webhook] Invalid or missing webhook secret', { ip: req.ip });
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+    next();
+  }
+
+  // External webhook endpoint for real-time alerts (protected)
+  app.post('/webhook/alerts', verifyWebhookSecret, handleWebhook);
 
   // Stripe webhook endpoint (raw body required for signature verification)
   app.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
