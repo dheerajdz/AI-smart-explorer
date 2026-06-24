@@ -12,6 +12,8 @@ import { z } from 'zod';
 
 const router = Router();
 
+// ─── Zod Validation Schemas ──────────────────────────────────
+
 const checkoutSchema = z.object({
   userId: z.string().min(1),
   platform: z.enum(['telegram', 'whatsapp', 'slack', 'x']),
@@ -24,24 +26,34 @@ const portalSchema = z.object({
   platform: z.enum(['telegram', 'whatsapp', 'slack', 'x']),
 });
 
+const subscriptionQuerySchema = z.object({
+  userId: z.string().min(1),
+  platform: z.enum(['telegram', 'whatsapp', 'slack', 'x']),
+});
+
+const usageQuerySchema = z.object({
+  userId: z.string().min(1),
+  platform: z.enum(['telegram', 'whatsapp', 'slack', 'x']),
+});
+
 /**
  * GET /api/billing/subscription
  * Get current subscription and usage for a user
  */
 router.get('/subscription', async (req: Request, res: Response) => {
   try {
-    const userId = req.query.userId as string;
-    const platform = req.query.platform as string;
-
-    if (!userId || !platform) {
-      res.status(400).json({ error: 'userId and platform are required' });
+    const parsed = subscriptionQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ success: false, errors: parsed.error.issues });
       return;
     }
 
+    const { userId, platform } = parsed.data;
+
     const [subscription, limits, usage] = await Promise.all([
-      getSubscription(userId, platform as any),
-      getTierLimits(userId, platform as any),
-      getUsage(userId, platform as any),
+      getSubscription(userId, platform),
+      getTierLimits(userId, platform),
+      getUsage(userId, platform),
     ]);
 
     res.json({
