@@ -2,6 +2,7 @@ import { Context } from 'telegraf';
 import { PortfolioModel } from '../../../models/Portfolio';
 import { getPortfolioData, refreshCache } from '../../../services/portfolioCache';
 import { sendTelegramMessage } from '../utils';
+import { logger } from '../../../utils/logger';
 
 export default async function portfolioFast(ctx: Context) {
   const userId = ctx.from?.id?.toString();
@@ -49,11 +50,50 @@ export default async function portfolioFast(ctx: Context) {
 }
 
 // Background refresh every 3 minutes
+let refreshInterval: NodeJS.Timeout | null = null;
+
 export function startBackgroundRefresh() {
-  setInterval(async () => {
-    const portfolios = await PortfolioModel.getCollection().find({}).toArray();
-    for (const p of portfolios) {
-      await refreshCache(p.userId, p.wallets).catch(() => {});
+  // Prevent multiple intervals
+  if (refreshInterval) {
+    logger.warn('[portfolioFast] Background refresh already running');
+    return;
+  }
+
+  refreshInterval = setInterval(async () => {
+    try {
+      const portfolios = await PortfolioModel.getCollection().find({}).toArray();
+      logger.info(`[portfolioFast] Refreshing ${portfolios.length} portfolios`);
+
+      // Process in batches of 10 to avoid event loop blocking
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < portfolios.length; i += BATCH_SIZE) {
+        const batch = portfolios.slice(i, i + BATCH_SIZE);
+        await Promise.allSettled(
+          batch.map(async (p) => {
+            try {
+              await refreshCache(p.userId, p.wallets);
+            } catch (err: any) {
+              logger.error(`[portfolioFast] Failed to refresh cache for user ${p.userId}`, {
+                error: err.message,
+              });
+            }
+          })
+        );
+      }
+
+      logger.info('[portfolioFast] Background refresh complete');
+    } catch (err: any) {
+      logger.error('[portfolioFast] Background refresh cycle failed', { error: err.message });
     }
   }, 3 * 60 * 1000);
+
+  logger.info('[portfolioFast] Background refresh started');
+}
+
+export function stopBackgroundRefresh(): void {
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+    refreshInterval = null;
+    logger.info('[portfolioFast] Background refresh stopped');
+  }
 }
