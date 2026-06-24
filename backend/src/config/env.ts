@@ -9,16 +9,16 @@ const envSchema = z.object({
   TELEGRAM_BOT_TOKEN: z.string().min(1, 'TELEGRAM_BOT_TOKEN is required'),
   
   // ── Kimi AI ─────────────────────────────────────────────────
-  KIMI_API_KEY: z.string().optional().default(''),
+  KIMI_API_KEY: z.string().min(1, 'KIMI_API_KEY is required'),
   KIMI_BASE_URL: z.string().url().optional().default('https://api.moonshot.cn/v1'),
   KIMI_MODEL: z.string().optional().default('moonshot-v1-8k'),
   
   // ── OpenRouter AI ───────────────────────────────────────────
-  OPENROUTER_API_KEY: z.string().optional().default(''),
+  OPENROUTER_API_KEY: z.string().min(1, 'OPENROUTER_API_KEY is required'),
   OPENROUTER_MODEL: z.string().optional().default('meta-llama/llama-3.1-8b-instruct:free'),
   
   // ── Groq AI ──────────────────────────────────────────────────
-  GROQ_API_KEY: z.string().optional().default(''),
+  GROQ_API_KEY: z.string().min(1, 'GROQ_API_KEY is required'),
   GROQ_MODEL: z.string().optional().default('llama-3.3-70b-versatile'),
   
   // ── Stripe Billing ──────────────────────────────────────────
@@ -28,13 +28,21 @@ const envSchema = z.object({
   STRIPE_PRO_PRICE_ID: z.string().optional(),
   STRIPE_ENTERPRISE_PRICE_ID: z.string().optional(),
   
-  // ── Frontend ────────────────────────────────────────────────
+  // ── JWT ───────────────────────────────────────────────────────
+  JWT_SECRET: z.string().min(1, 'JWT_SECRET is required'),
+  JWT_EXPIRES_IN: z.string().default('7d'),
   FRONTEND_URL: z.string().url().optional().default('http://localhost:3000'),
   
   // ── Blockchain APIs ─────────────────────────────────────────
   XDCSCAN_API: z.string().url().optional().default('https://api.xdcscan.io/api'),
   XDCSCAN_TESTNET_API: z.string().url().optional().default('https://erpc.apothem.network'),
   XDC_TESTNET_RPC: z.string().url().optional().default('https://erpc.apothem.network'),
+  
+  // ── Explorer API Keys ───────────────────────────────────────
+  ETHERSCAN_API_KEY: z.string().optional(),
+  BASESCAN_API_KEY: z.string().optional(),
+  POLYGONSCAN_API_KEY: z.string().optional(),
+  BSCSCAN_API_KEY: z.string().optional(),
   
   // ── Twilio (WhatsApp) ───────────────────────────────────────
   TWILIO_ACCOUNT_SID: z.string().min(1, 'TWILIO_ACCOUNT_SID is required'),
@@ -51,6 +59,10 @@ const envSchema = z.object({
   X_ACCESS_TOKEN: z.string().optional(),
   X_ACCESS_SECRET: z.string().optional(),
   
+  // ── Logging ───────────────────────────────────────────────────
+  LOG_LEVEL: z.string().optional().default('info'),
+  NODE_ENV: z.string().optional().default('development'),
+
   // ── Email / SMTP (for OTP) ──────────────────────────────────
   SMTP_HOST: z.string().min(1, 'SMTP_HOST is required'),
   SMTP_PORT: z.string().default('587').transform((v) => parseInt(v, 10)),
