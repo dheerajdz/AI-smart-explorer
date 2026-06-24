@@ -64,4 +64,13 @@ const AlertSchema = new Schema<IAlert>(
 AlertSchema.index({ userId: 1, status: 1 });
 AlertSchema.index({ type: 1, isActive: 1 });
 
+// Compound index for alert polling (find active alerts by type)
+AlertSchema.index({ status: 1, type: 1, createdAt: -1 });
+
+// Index for user-specific active alerts
+AlertSchema.index({ userId: 1, isActive: 1, createdAt: -1 });
+
+// Index for triggered alerts with cooldown
+AlertSchema.index({ status: 1, lastTriggered: 1 });
+
 export const AlertModel = mongoose.model<IAlert>('Alert', AlertSchema);
